@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from './firebase'
-import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from 'firebase/firestore'
+import { doc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore'
 
 const TEAM_NAME = 'Our Lady of Good Counsel 2026 JV Softball'
 const FIELD_POSITIONS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF']
@@ -945,45 +945,43 @@ function App() {
 
   const canEdit = isAuthenticated
 
-  // Load roster from Firestore on mount
+  // Load data from Firestore on mount with real-time listeners
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load roster
-        const rosterDoc = await getDoc(doc(db, 'settings', 'roster'))
-        if (rosterDoc.exists()) {
-          const loadedRoster = rosterDoc.data()
-          setRoster(loadedRoster)
+    let rosterLoaded = false
+
+    // Real-time listener for roster
+    const unsubscribeRoster = onSnapshot(doc(db, 'settings', 'roster'), (docSnap) => {
+      if (docSnap.exists()) {
+        const loadedRoster = docSnap.data()
+        setRoster(loadedRoster)
+        // Only reset game data on initial load, not on every roster update
+        if (!rosterLoaded) {
           setGameData(createInitialGameData(loadedRoster))
+          rosterLoaded = true
         }
-
-        // Load saved games
-        const gamesSnapshot = await getDocs(collection(db, 'games'))
-        const games = gamesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-        setSavedGames(games)
-
-        setSyncStatus('synced')
-      } catch (error) {
-        console.error('Error loading data:', error)
-        setSyncStatus('error')
-      } finally {
-        setLoading(false)
       }
-    }
+      setLoading(false)
+      setSyncStatus('synced')
+    }, (error) => {
+      console.error('Roster sync error:', error)
+      setSyncStatus('error')
+      setLoading(false)
+    })
 
-    loadData()
-
-    // Listen for real-time updates to games
-    const unsubscribe = onSnapshot(collection(db, 'games'), (snapshot) => {
+    // Real-time listener for games
+    const unsubscribeGames = onSnapshot(collection(db, 'games'), (snapshot) => {
       const games = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       setSavedGames(games)
       setSyncStatus('synced')
     }, (error) => {
-      console.error('Sync error:', error)
+      console.error('Games sync error:', error)
       setSyncStatus('error')
     })
 
-    return () => unsubscribe()
+    return () => {
+      unsubscribeRoster()
+      unsubscribeGames()
+    }
   }, [])
 
   const currentData = gameData[currentInning] || gameData[1]
