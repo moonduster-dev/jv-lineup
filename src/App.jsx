@@ -947,7 +947,6 @@ function App() {
 
   // Load data from Firestore on mount with real-time listeners
   useEffect(() => {
-    let rosterLoaded = false
     console.log('Setting up Firestore listeners...')
 
     // Real-time listener for roster
@@ -955,26 +954,33 @@ function App() {
       console.log('Roster snapshot received, exists:', docSnap.exists())
       if (docSnap.exists()) {
         const loadedRoster = docSnap.data()
-        console.log('Loaded roster:', loadedRoster)
         setRoster(loadedRoster)
-        // Only reset game data on initial load, not on every roster update
-        if (!rosterLoaded) {
-          setGameData(createInitialGameData(loadedRoster))
-          rosterLoaded = true
-        }
-      } else {
-        console.log('No roster in Firestore yet, using default')
-        rosterLoaded = true
       }
-      setLoading(false)
       setSyncStatus('synced')
     }, (error) => {
       console.error('Roster sync error:', error.code, error.message)
       setSyncStatus('error')
+    })
+
+    // Real-time listener for current game (shared across all devices)
+    const unsubscribeCurrentGame = onSnapshot(doc(db, 'settings', 'currentGame'), (docSnap) => {
+      console.log('Current game snapshot received, exists:', docSnap.exists())
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        console.log('Loading current game from Firestore')
+        setGameData(data.gameData)
+        setGameInfo({ opponent: data.opponent || '', date: data.date || new Date().toISOString().split('T')[0] })
+        setCurrentGameId(data.id || null)
+      }
+      setLoading(false)
+      setSyncStatus('synced')
+    }, (error) => {
+      console.error('Current game sync error:', error.code, error.message)
+      setSyncStatus('error')
       setLoading(false)
     })
 
-    // Real-time listener for games
+    // Real-time listener for saved games list
     const unsubscribeGames = onSnapshot(collection(db, 'games'), (snapshot) => {
       console.log('Games snapshot received, count:', snapshot.docs.length)
       const games = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -987,12 +993,31 @@ function App() {
 
     return () => {
       unsubscribeRoster()
+      unsubscribeCurrentGame()
       unsubscribeGames()
     }
   }, [])
 
   const currentData = gameData[currentInning] || gameData[1]
   const allPlayers = [...currentData.battingOrder, ...currentData.subs]
+
+  // Save current game to Firestore (called after any change)
+  const syncCurrentGame = async (newGameData, newGameInfo, newGameId) => {
+    setSyncStatus('saving')
+    try {
+      await setDoc(doc(db, 'settings', 'currentGame'), {
+        gameData: JSON.parse(JSON.stringify(newGameData)),
+        opponent: newGameInfo.opponent,
+        date: newGameInfo.date,
+        id: newGameId,
+        updatedAt: new Date().toISOString()
+      })
+      setSyncStatus('synced')
+    } catch (error) {
+      console.error('Error syncing current game:', error)
+      setSyncStatus('error')
+    }
+  }
 
   const getAllPlayersFromGame = () => {
     const players = new Map()
@@ -1033,16 +1058,20 @@ function App() {
 
   const handleFieldPositionChange = (position, playerId) => {
     if (!canEdit) return
-    setGameData(prev => ({
-      ...prev,
-      [currentInning]: {
-        ...prev[currentInning],
-        fieldAssignments: {
-          ...prev[currentInning].fieldAssignments,
-          [position]: playerId
+    setGameData(prev => {
+      const newGameData = {
+        ...prev,
+        [currentInning]: {
+          ...prev[currentInning],
+          fieldAssignments: {
+            ...prev[currentInning].fieldAssignments,
+            [position]: playerId
+          }
         }
       }
-    }))
+      syncCurrentGame(newGameData, gameInfo, currentGameId)
+      return newGameData
+    })
   }
 
   const handlePlayerNameChange = (playerId, newName) => {
@@ -1068,6 +1097,7 @@ function App() {
         }
       })
 
+      syncCurrentGame(newGameData, gameInfo, currentGameId)
       return newGameData
     })
   }
@@ -1147,6 +1177,7 @@ function App() {
         }
       }
 
+      syncCurrentGame(newGameData, gameInfo, currentGameId)
       return newGameData
     })
 
@@ -1163,10 +1194,12 @@ function App() {
 
         if (sourceInning > 0 && prev[sourceInning]) {
           const source = prev[sourceInning]
-          return {
+          const newGameData = {
             ...prev,
             [newInning]: createInningData(source.battingOrder, source.subs, source.fieldAssignments, source.originalSlots)
           }
+          syncCurrentGame(newGameData, gameInfo, currentGameId)
+          return newGameData
         }
         return prev
       })
@@ -1190,6 +1223,8 @@ function App() {
       await setDoc(doc(db, 'games', gameId), game)
       setGameInfo({ opponent, date })
       setCurrentGameId(gameId)
+      // Also update current game with new info
+      syncCurrentGame(gameData, { opponent, date }, gameId)
       setSaveModal(false)
       setSyncStatus('synced')
     } catch (error) {
@@ -1204,6 +1239,8 @@ function App() {
     setCurrentGameId(game.id)
     setCurrentInning(1)
     setSavedGamesModal(false)
+    // Sync to all devices
+    syncCurrentGame(game.gameData, { opponent: game.opponent, date: game.date }, game.id)
   }
 
   const handleDeleteGame = async (gameId) => {
@@ -1221,10 +1258,14 @@ function App() {
 
   const handleNewGame = () => {
     if (!canEdit) return
-    setGameData(createInitialGameData(roster))
-    setGameInfo({ opponent: '', date: new Date().toISOString().split('T')[0] })
+    const newGameData = createInitialGameData(roster)
+    const newGameInfo = { opponent: '', date: new Date().toISOString().split('T')[0] }
+    setGameData(newGameData)
+    setGameInfo(newGameInfo)
     setCurrentGameId(null)
     setCurrentInning(1)
+    // Sync to all devices
+    syncCurrentGame(newGameData, newGameInfo, null)
   }
 
   const handleSaveRoster = async (newRoster) => {
