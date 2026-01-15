@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
+import { db } from './firebase'
+import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from 'firebase/firestore'
 
 const TEAM_NAME = 'Our Lady of Good Counsel 2026 JV Softball'
 const FIELD_POSITIONS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF']
 const INNINGS = [1, 2, 3, 4, 5, 6, 7]
-const STORAGE_KEY = 'jv-lineup-games'
-const ROSTER_KEY = 'jv-lineup-roster'
 const AUTH_KEY = 'jv-lineup-auth'
 const EDIT_PASSWORD = 'bob2026'
 
@@ -28,19 +28,6 @@ const createDefaultRoster = () => ({
     { id: 14, name: 'Sub 5' },
   ]
 })
-
-const loadRoster = () => {
-  try {
-    const saved = localStorage.getItem(ROSTER_KEY)
-    return saved ? JSON.parse(saved) : createDefaultRoster()
-  } catch {
-    return createDefaultRoster()
-  }
-}
-
-const saveRoster = (roster) => {
-  localStorage.setItem(ROSTER_KEY, JSON.stringify(roster))
-}
 
 const loadAuthState = () => {
   try {
@@ -82,19 +69,6 @@ const createInitialGameData = (roster) => {
   return {
     1: createInningData(initialBattingOrder, initialSubs, initialFieldAssignments, initialOriginalSlots)
   }
-}
-
-const loadSavedGames = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    return saved ? JSON.parse(saved) : []
-  } catch {
-    return []
-  }
-}
-
-const saveGamesToStorage = (games) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(games))
 }
 
 // Password Modal Component
@@ -355,7 +329,7 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
   )
 }
 
-function GameSummaryModal({ isOpen, onClose, gameData, gameInfo, allPlayers }) {
+function GameSummaryModal({ isOpen, onClose, gameData, gameInfo }) {
   if (!isOpen) return null
 
   const getPlayerPosition = (inningData, playerId) => {
@@ -575,12 +549,11 @@ function calculateGameMetrics(game) {
 }
 
 function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGameInfo }) {
-  const [viewMode, setViewMode] = useState('season') // 'season' or 'game'
+  const [viewMode, setViewMode] = useState('season')
   const [selectedGameId, setSelectedGameId] = useState(null)
 
   if (!isOpen) return null
 
-  // Calculate season metrics
   const calculateSeasonMetrics = () => {
     const playerStats = {}
 
@@ -652,7 +625,6 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
             </button>
           </div>
 
-          {/* View Toggle */}
           <div className="flex gap-2 mb-2">
             <button
               onClick={() => setViewMode('season')}
@@ -676,7 +648,6 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
             </button>
           </div>
 
-          {/* Game Selector for single game view */}
           {viewMode === 'game' && (
             <select
               value={selectedGameId || ''}
@@ -952,8 +923,8 @@ function ValidationPanel({ fieldAssignments, battingOrder }) {
 }
 
 function App() {
-  const [roster, setRoster] = useState(loadRoster)
-  const [gameData, setGameData] = useState(() => createInitialGameData(loadRoster()))
+  const [roster, setRoster] = useState(createDefaultRoster)
+  const [gameData, setGameData] = useState(() => createInitialGameData(createDefaultRoster()))
   const [currentInning, setCurrentInning] = useState(1)
   const [swapModal, setSwapModal] = useState({ isOpen: false, player: null })
   const [summaryModal, setSummaryModal] = useState(false)
@@ -962,15 +933,58 @@ function App() {
   const [savedGamesModal, setSavedGamesModal] = useState(false)
   const [rosterModal, setRosterModal] = useState(false)
   const [passwordModal, setPasswordModal] = useState(false)
-  const [savedGames, setSavedGames] = useState(loadSavedGames)
+  const [savedGames, setSavedGames] = useState([])
   const [gameInfo, setGameInfo] = useState({
     opponent: '',
     date: new Date().toISOString().split('T')[0]
   })
   const [currentGameId, setCurrentGameId] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(loadAuthState)
+  const [loading, setLoading] = useState(true)
+  const [syncStatus, setSyncStatus] = useState('loading')
 
   const canEdit = isAuthenticated
+
+  // Load roster from Firestore on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Load roster
+        const rosterDoc = await getDoc(doc(db, 'settings', 'roster'))
+        if (rosterDoc.exists()) {
+          const loadedRoster = rosterDoc.data()
+          setRoster(loadedRoster)
+          setGameData(createInitialGameData(loadedRoster))
+        }
+
+        // Load saved games
+        const gamesSnapshot = await getDocs(collection(db, 'games'))
+        const games = gamesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        setSavedGames(games)
+
+        setSyncStatus('synced')
+      } catch (error) {
+        console.error('Error loading data:', error)
+        setSyncStatus('error')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+
+    // Listen for real-time updates to games
+    const unsubscribe = onSnapshot(collection(db, 'games'), (snapshot) => {
+      const games = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      setSavedGames(games)
+      setSyncStatus('synced')
+    }, (error) => {
+      console.error('Sync error:', error)
+      setSyncStatus('error')
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const currentData = gameData[currentInning] || gameData[1]
   const allPlayers = [...currentData.battingOrder, ...currentData.subs]
@@ -1155,31 +1169,28 @@ function App() {
     setCurrentInning(newInning)
   }
 
-  const handleSaveGame = (opponent, date) => {
+  const handleSaveGame = async (opponent, date) => {
     if (!canEdit) return
+
+    setSyncStatus('saving')
+    const gameId = currentGameId || Date.now().toString()
     const game = {
-      id: currentGameId || Date.now().toString(),
       opponent,
       date,
-      gameData: JSON.parse(JSON.stringify(gameData))
+      gameData: JSON.parse(JSON.stringify(gameData)),
+      updatedAt: new Date().toISOString()
     }
 
-    setSavedGames(prev => {
-      const existingIndex = prev.findIndex(g => g.id === game.id)
-      let newGames
-      if (existingIndex >= 0) {
-        newGames = [...prev]
-        newGames[existingIndex] = game
-      } else {
-        newGames = [...prev, game]
-      }
-      saveGamesToStorage(newGames)
-      return newGames
-    })
-
-    setGameInfo({ opponent, date })
-    setCurrentGameId(game.id)
-    setSaveModal(false)
+    try {
+      await setDoc(doc(db, 'games', gameId), game)
+      setGameInfo({ opponent, date })
+      setCurrentGameId(gameId)
+      setSaveModal(false)
+      setSyncStatus('synced')
+    } catch (error) {
+      console.error('Error saving game:', error)
+      setSyncStatus('error')
+    }
   }
 
   const handleLoadGame = (game) => {
@@ -1190,13 +1201,17 @@ function App() {
     setSavedGamesModal(false)
   }
 
-  const handleDeleteGame = (gameId) => {
+  const handleDeleteGame = async (gameId) => {
     if (!canEdit) return
-    setSavedGames(prev => {
-      const newGames = prev.filter(g => g.id !== gameId)
-      saveGamesToStorage(newGames)
-      return newGames
-    })
+
+    setSyncStatus('saving')
+    try {
+      await deleteDoc(doc(db, 'games', gameId))
+      setSyncStatus('synced')
+    } catch (error) {
+      console.error('Error deleting game:', error)
+      setSyncStatus('error')
+    }
   }
 
   const handleNewGame = () => {
@@ -1207,14 +1222,33 @@ function App() {
     setCurrentInning(1)
   }
 
-  const handleSaveRoster = (newRoster) => {
+  const handleSaveRoster = async (newRoster) => {
     setRoster(newRoster)
-    saveRoster(newRoster)
+
+    setSyncStatus('saving')
+    try {
+      await setDoc(doc(db, 'settings', 'roster'), newRoster)
+      setSyncStatus('synced')
+    } catch (error) {
+      console.error('Error saving roster:', error)
+      setSyncStatus('error')
+    }
   }
 
   const handleLogout = () => {
     setIsAuthenticated(false)
     saveAuthState(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -1225,9 +1259,21 @@ function App() {
           <img src="/GClogo.jpg" alt="GC Logo" className="w-16 h-16 object-contain" />
           <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">{TEAM_NAME}</h1>
-            <p className="text-sm text-gray-500">Lineup Manager</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-500">Lineup Manager</p>
+              <span className={`text-xs px-2 py-0.5 rounded ${
+                syncStatus === 'synced' ? 'bg-green-100 text-green-700' :
+                syncStatus === 'saving' ? 'bg-yellow-100 text-yellow-700' :
+                syncStatus === 'error' ? 'bg-red-100 text-red-700' :
+                'bg-gray-100 text-gray-700'
+              }`}>
+                {syncStatus === 'synced' ? 'Synced' :
+                 syncStatus === 'saving' ? 'Saving...' :
+                 syncStatus === 'error' ? 'Sync Error' :
+                 'Loading...'}
+              </span>
+            </div>
           </div>
-          {/* Auth Button */}
           {isAuthenticated ? (
             <button
               onClick={handleLogout}
@@ -1431,7 +1477,6 @@ function App() {
         onClose={() => setSummaryModal(false)}
         gameData={gameData}
         gameInfo={gameInfo}
-        allPlayers={getAllPlayersFromGame()}
       />
 
       <SaveGameModal
