@@ -948,33 +948,40 @@ function App() {
   // Load data from Firestore on mount with real-time listeners
   useEffect(() => {
     let rosterLoaded = false
+    console.log('Setting up Firestore listeners...')
 
     // Real-time listener for roster
     const unsubscribeRoster = onSnapshot(doc(db, 'settings', 'roster'), (docSnap) => {
+      console.log('Roster snapshot received, exists:', docSnap.exists())
       if (docSnap.exists()) {
         const loadedRoster = docSnap.data()
+        console.log('Loaded roster:', loadedRoster)
         setRoster(loadedRoster)
         // Only reset game data on initial load, not on every roster update
         if (!rosterLoaded) {
           setGameData(createInitialGameData(loadedRoster))
           rosterLoaded = true
         }
+      } else {
+        console.log('No roster in Firestore yet, using default')
+        rosterLoaded = true
       }
       setLoading(false)
       setSyncStatus('synced')
     }, (error) => {
-      console.error('Roster sync error:', error)
+      console.error('Roster sync error:', error.code, error.message)
       setSyncStatus('error')
       setLoading(false)
     })
 
     // Real-time listener for games
     const unsubscribeGames = onSnapshot(collection(db, 'games'), (snapshot) => {
-      const games = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      console.log('Games snapshot received, count:', snapshot.docs.length)
+      const games = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       setSavedGames(games)
       setSyncStatus('synced')
     }, (error) => {
-      console.error('Games sync error:', error)
+      console.error('Games sync error:', error.code, error.message)
       setSyncStatus('error')
     })
 
