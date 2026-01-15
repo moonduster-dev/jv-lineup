@@ -216,16 +216,17 @@ function RosterModal({ isOpen, onClose, roster, onSave }) {
 
 function InningTabs({ currentInning, setCurrentInning }) {
   return (
-    <div className="flex flex-wrap gap-1 mb-4 bg-gray-100 p-2 rounded-lg">
+    <div className="flex flex-wrap gap-1.5 mb-4 p-2 rounded-lg" style={{ backgroundColor: '#1e3a5f' }}>
       {INNINGS.map(inning => (
         <button
           key={inning}
           onClick={() => setCurrentInning(inning)}
-          className={`px-4 py-2 rounded-md font-medium transition-colors min-w-[48px]
+          className={`px-4 py-2 rounded-md font-bold transition-colors min-w-[48px] shadow
             ${currentInning === inning
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-200 border border-gray-300'
+              ? 'bg-amber-400 text-gray-900'
+              : 'bg-white/90 hover:bg-white'
             }`}
+          style={{ color: currentInning === inning ? undefined : '#1e3a5f' }}
         >
           {inning}
         </button>
@@ -506,9 +507,16 @@ function SaveGameModal({ isOpen, onClose, onSave, initialOpponent, initialDate }
   )
 }
 
-// Calculate metrics for a single game
-function calculateGameMetrics(game) {
+// Calculate metrics for a single game, including all roster players
+function calculateGameMetrics(game, roster) {
   const playerStats = {}
+
+  // Initialize all roster players with zero stats
+  if (roster) {
+    [...roster.players, ...roster.subs].forEach(player => {
+      playerStats[player.name] = { batting: 0, field: 0, total: 0 }
+    })
+  }
 
   INNINGS.forEach(inning => {
     const inningData = game.gameData[inning]
@@ -548,7 +556,7 @@ function calculateGameMetrics(game) {
     .sort((a, b) => b.total - a.total)
 }
 
-function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGameInfo }) {
+function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGameInfo, roster }) {
   const [viewMode, setViewMode] = useState('season')
   const [selectedGameId, setSelectedGameId] = useState(null)
 
@@ -556,6 +564,13 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
 
   const calculateSeasonMetrics = () => {
     const playerStats = {}
+
+    // Initialize all roster players with zero stats
+    if (roster) {
+      [...roster.players, ...roster.subs].forEach(player => {
+        playerStats[player.name] = { batting: 0, field: 0, total: 0 }
+      })
+    }
 
     savedGames.forEach(game => {
       INNINGS.forEach(inning => {
@@ -602,8 +617,8 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
 
   const seasonStats = calculateSeasonMetrics()
   const selectedGame = savedGames.find(g => g.id === selectedGameId)
-  const gameStats = selectedGame ? calculateGameMetrics(selectedGame) :
-    (currentGameInfo.opponent ? calculateGameMetrics({ gameData: currentGameData }) : [])
+  const gameStats = selectedGame ? calculateGameMetrics(selectedGame, roster) :
+    (currentGameInfo.opponent ? calculateGameMetrics({ gameData: currentGameData }, roster) : [])
 
   const displayStats = viewMode === 'season' ? seasonStats : gameStats
   const totalGames = savedGames.length
@@ -770,40 +785,32 @@ function SavedGamesModal({ isOpen, onClose, savedGames, onLoadGame, onDeleteGame
   )
 }
 
-function BattingOrderRow({ player, slot, position, onSwapClick, onNameChange, canEdit }) {
+function BattingOrderRow({ player, slot, position, onSwapClick, canEdit }) {
   const isEH = !position
 
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 bg-white">
-      <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full text-sm font-bold text-gray-600">
+    <div className="flex items-center gap-2 p-3 rounded-lg border-2 border-amber-200 bg-white shadow-sm">
+      <div className="w-9 h-9 flex items-center justify-center rounded-full text-sm font-bold text-amber-400 shadow" style={{ backgroundColor: '#1e3a5f' }}>
         {slot}
       </div>
 
-      {canEdit ? (
-        <input
-          type="text"
-          value={player.name}
-          onChange={(e) => onNameChange(player.id, e.target.value)}
-          className="flex-1 min-w-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-800 font-medium focus:bg-white focus:border-blue-400 focus:outline-none"
-        />
-      ) : (
-        <div className="flex-1 min-w-0 px-3 py-2 text-gray-800 font-medium">
-          {player.name}
-        </div>
-      )}
+      <div className="flex-1 min-w-0 px-3 py-2 text-gray-800 font-medium">
+        {player.name}
+      </div>
 
-      <span className={`w-12 text-center px-2 py-1 rounded text-xs font-bold
+      <span className={`w-12 text-center px-2 py-1.5 rounded text-xs font-bold shadow-sm
         ${isEH
-          ? 'bg-yellow-100 border border-yellow-400 text-yellow-800'
-          : 'bg-green-100 border border-green-400 text-green-800'}
-      `}>
+          ? 'bg-amber-400 text-gray-900'
+          : 'text-white'}
+      `} style={{ backgroundColor: isEH ? undefined : '#1e3a5f' }}>
         {position || 'EH'}
       </span>
 
       {canEdit && (
         <button
           onClick={onSwapClick}
-          className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
+          className="px-3 py-2 text-white rounded-md hover:opacity-90 transition-colors text-sm font-medium whitespace-nowrap shadow"
+          style={{ backgroundColor: '#1e3a5f' }}
         >
           Swap
         </button>
@@ -820,16 +827,16 @@ function FieldDiamond({ fieldAssignments, allPlayers, onPositionChange, position
 
     return (
       <div className="flex flex-col items-center">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold
-          ${hasConflict ? 'bg-red-500 text-white' : 'bg-green-600 text-white'}
-        `}>
+        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-bold shadow-md
+          ${hasConflict ? 'bg-red-500 text-white' : 'bg-navy-700 text-amber-400 border-2 border-amber-400'}
+        `} style={{ backgroundColor: hasConflict ? undefined : '#1e3a5f' }}>
           {position}
         </div>
         {canEdit ? (
           <select
             value={playerId || ''}
             onChange={(e) => onPositionChange(position, e.target.value ? parseInt(e.target.value) : null)}
-            className="text-xs mt-1 w-20 px-1 py-1 border border-gray-300 rounded bg-white text-gray-700"
+            className="text-xs mt-1 w-24 px-1 py-1.5 border-2 border-amber-500 rounded bg-white text-gray-800 font-medium"
           >
             <option value="">None</option>
             {allPlayers.map(p => (
@@ -837,7 +844,7 @@ function FieldDiamond({ fieldAssignments, allPlayers, onPositionChange, position
             ))}
           </select>
         ) : (
-          <div className="text-xs mt-1 w-20 px-1 py-1 text-center text-gray-700 font-medium">
+          <div className="text-xs mt-1 w-24 px-1 py-1.5 text-center text-gray-800 font-medium bg-white/80 rounded">
             {player?.name || '-'}
           </div>
         )}
@@ -846,30 +853,30 @@ function FieldDiamond({ fieldAssignments, allPlayers, onPositionChange, position
   }
 
   return (
-    <div className="bg-green-100 rounded-lg p-4 relative">
+    <div className="bg-emerald-600 rounded-lg p-6 relative shadow-lg">
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-24 h-24 border-2 border-green-600 rotate-45 bg-green-200/50 mt-8"></div>
+        <div className="w-28 h-28 border-3 border-white/40 rotate-45 bg-emerald-500/50 mt-10"></div>
       </div>
 
       <div className="relative">
-        <div className="flex justify-between px-2 mb-4">
+        <div className="flex justify-between px-2 mb-6">
           <PositionBubble position="LF" />
           <PositionBubble position="CF" />
           <PositionBubble position="RF" />
         </div>
 
-        <div className="flex justify-center gap-12 my-4">
+        <div className="flex justify-center gap-16 my-5">
           <PositionBubble position="SS" />
           <PositionBubble position="2B" />
         </div>
 
-        <div className="flex justify-between items-center px-4">
+        <div className="flex justify-between items-center px-6">
           <PositionBubble position="3B" />
           <PositionBubble position="P" />
           <PositionBubble position="1B" />
         </div>
 
-        <div className="flex justify-center mt-4">
+        <div className="flex justify-center mt-5">
           <PositionBubble position="C" />
         </div>
       </div>
@@ -1019,17 +1026,6 @@ function App() {
     }
   }
 
-  const getAllPlayersFromGame = () => {
-    const players = new Map()
-    Object.values(gameData).forEach(inningData => {
-      if (inningData) {
-        inningData.battingOrder.forEach(p => players.set(p.id, p))
-        inningData.subs.forEach(p => players.set(p.id, p))
-      }
-    })
-    return Array.from(players.values())
-  }
-
   const getPositionConflicts = () => {
     const conflicts = {}
     const playerPositions = {}
@@ -1069,34 +1065,6 @@ function App() {
           }
         }
       }
-      syncCurrentGame(newGameData, gameInfo, currentGameId)
-      return newGameData
-    })
-  }
-
-  const handlePlayerNameChange = (playerId, newName) => {
-    if (!canEdit) return
-    setGameData(prev => {
-      const newGameData = { ...prev }
-
-      Object.keys(newGameData).forEach(inning => {
-        const inningData = newGameData[inning]
-        if (!inningData) return
-
-        const newBattingOrder = inningData.battingOrder.map(p =>
-          p.id === playerId ? { ...p, name: newName } : p
-        )
-        const newSubs = inningData.subs.map(p =>
-          p.id === playerId ? { ...p, name: newName } : p
-        )
-
-        newGameData[inning] = {
-          ...inningData,
-          battingOrder: newBattingOrder,
-          subs: newSubs
-        }
-      })
-
       syncCurrentGame(newGameData, gameInfo, currentGameId)
       return newGameData
     })
@@ -1300,20 +1268,20 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 print:bg-white">
+    <div className="min-h-screen print:bg-white" style={{ backgroundColor: '#f8f6f0' }}>
       <div className="max-w-2xl mx-auto p-4">
         {/* Team Header */}
-        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200">
-          <img src="/GClogo.jpg" alt="GC Logo" className="w-16 h-16 object-contain" />
+        <div className="flex items-center gap-3 mb-4 p-4 rounded-lg shadow-md" style={{ backgroundColor: '#1e3a5f' }}>
+          <img src="/GClogo.jpg" alt="GC Logo" className="w-16 h-16 object-contain rounded-lg bg-white p-1" />
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-gray-900">{TEAM_NAME}</h1>
+            <h1 className="text-lg font-bold text-amber-400">{TEAM_NAME}</h1>
             <div className="flex items-center gap-2">
-              <p className="text-sm text-gray-500">Lineup Manager</p>
-              <span className={`text-xs px-2 py-0.5 rounded ${
-                syncStatus === 'synced' ? 'bg-green-100 text-green-700' :
-                syncStatus === 'saving' ? 'bg-yellow-100 text-yellow-700' :
-                syncStatus === 'error' ? 'bg-red-100 text-red-700' :
-                'bg-gray-100 text-gray-700'
+              <p className="text-sm text-gray-300">Lineup Manager</p>
+              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                syncStatus === 'synced' ? 'bg-green-500 text-white' :
+                syncStatus === 'saving' ? 'bg-amber-400 text-gray-900' :
+                syncStatus === 'error' ? 'bg-red-500 text-white' :
+                'bg-gray-400 text-white'
               }`}>
                 {syncStatus === 'synced' ? 'Synced' :
                  syncStatus === 'saving' ? 'Saving...' :
@@ -1325,14 +1293,14 @@ function App() {
           {isAuthenticated ? (
             <button
               onClick={handleLogout}
-              className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              className="px-3 py-1.5 text-sm bg-amber-400 text-gray-900 rounded font-medium hover:bg-amber-300"
             >
               Logout
             </button>
           ) : (
             <button
               onClick={() => setPasswordModal(true)}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-3 py-1.5 text-sm bg-amber-400 text-gray-900 rounded font-medium hover:bg-amber-300"
             >
               Login to Edit
             </button>
@@ -1340,8 +1308,8 @@ function App() {
         </div>
 
         {!canEdit && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 text-sm font-medium">
+          <div className="mb-4 p-3 bg-amber-100 border-2 border-amber-400 rounded-lg">
+            <p className="text-gray-800 text-sm font-medium">
               View-only mode. Login to make changes.
             </p>
           </div>
@@ -1350,7 +1318,7 @@ function App() {
         <header className="mb-6">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800">
+              <h2 className="text-lg font-bold" style={{ color: '#1e3a5f' }}>
                 {gameInfo.opponent
                   ? `vs ${gameInfo.opponent}`
                   : 'New Game'}
@@ -1362,7 +1330,8 @@ function App() {
             {canEdit && (
               <button
                 onClick={handleNewGame}
-                className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                className="px-3 py-1.5 text-sm text-white rounded font-medium hover:opacity-90"
+                style={{ backgroundColor: '#1e3a5f' }}
               >
                 New Game
               </button>
@@ -1374,34 +1343,37 @@ function App() {
         <div className="flex flex-wrap gap-2 mb-4">
           <button
             onClick={() => setSummaryModal(true)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
+            className="px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors text-sm font-medium shadow"
+            style={{ backgroundColor: '#1e3a5f' }}
           >
             View Summary
           </button>
           {canEdit && (
             <button
               onClick={() => setSaveModal(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+              className="px-4 py-2 bg-amber-500 text-gray-900 rounded-md hover:bg-amber-400 transition-colors text-sm font-medium shadow"
             >
               Save Game
             </button>
           )}
           <button
             onClick={() => setSavedGamesModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors text-sm font-medium shadow"
+            style={{ backgroundColor: '#1e3a5f' }}
           >
             {canEdit ? 'Load Game' : 'View Games'}
           </button>
           <button
             onClick={() => setMetricsModal(true)}
-            className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm font-medium"
+            className="px-4 py-2 bg-amber-500 text-gray-900 rounded-md hover:bg-amber-400 transition-colors text-sm font-medium shadow"
           >
             Player Metrics
           </button>
           {canEdit && (
             <button
               onClick={() => setRosterModal(true)}
-              className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors text-sm font-medium"
+              className="px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors text-sm font-medium shadow"
+              style={{ backgroundColor: '#1e3a5f' }}
             >
               Manage Roster
             </button>
@@ -1414,10 +1386,10 @@ function App() {
         />
 
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+          <h2 className="text-lg font-bold mb-2" style={{ color: '#1e3a5f' }}>
             Inning {currentInning} - Field Positions
           </h2>
-          {canEdit && <p className="text-sm text-gray-500 mb-2">Select a player for each position</p>}
+          {canEdit && <p className="text-sm text-gray-600 mb-2">Select a player for each position</p>}
           <FieldDiamond
             fieldAssignments={currentData.fieldAssignments}
             allPlayers={allPlayers}
@@ -1433,7 +1405,7 @@ function App() {
         />
 
         <div className="mt-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">
+          <h2 className="text-lg font-bold mb-3" style={{ color: '#1e3a5f' }}>
             Batting Order
           </h2>
           <div className="space-y-2">
@@ -1444,7 +1416,6 @@ function App() {
                 slot={index + 1}
                 position={getPlayerPosition(player.id)}
                 onSwapClick={() => setSwapModal({ isOpen: true, player })}
-                onNameChange={handlePlayerNameChange}
                 canEdit={canEdit}
               />
             ))}
@@ -1452,7 +1423,7 @@ function App() {
         </div>
 
         <div className="mt-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">
+          <h2 className="text-lg font-bold mb-3" style={{ color: '#1e3a5f' }}>
             Substitutes
           </h2>
           <div className="space-y-2">
@@ -1463,29 +1434,21 @@ function App() {
               return (
                 <div
                   key={sub.id}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 border border-gray-200 rounded-md"
+                  className="flex items-center gap-2 px-3 py-3 bg-white border-2 border-amber-200 rounded-lg shadow-sm"
                 >
-                  {canEdit ? (
-                    <input
-                      type="text"
-                      value={sub.name}
-                      onChange={(e) => handlePlayerNameChange(sub.id, e.target.value)}
-                      className="flex-1 min-w-0 px-2 py-1 bg-transparent border-none text-gray-700 font-medium focus:bg-white focus:border focus:border-blue-400 focus:outline-none rounded"
-                    />
-                  ) : (
-                    <div className="flex-1 min-w-0 px-2 py-1 text-gray-700 font-medium">
-                      {sub.name}
-                    </div>
-                  )}
+                  <div className="flex-1 min-w-0 px-2 py-1 text-gray-800 font-medium">
+                    {sub.name}
+                  </div>
                   {fieldPosition && (
-                    <span className="px-2 py-1 bg-green-100 border border-green-400 text-green-800 rounded text-xs font-bold">
+                    <span className="px-2 py-1.5 text-white rounded text-xs font-bold shadow" style={{ backgroundColor: '#1e3a5f' }}>
                       {fieldPosition}
                     </span>
                   )}
                   {canEdit && (
                     <button
                       onClick={() => setSwapModal({ isOpen: true, player: sub })}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors font-medium"
+                      className="px-3 py-1.5 text-white rounded text-sm hover:opacity-90 transition-colors font-medium shadow"
+                      style={{ backgroundColor: '#1e3a5f' }}
                     >
                       Swap
                     </button>
@@ -1541,6 +1504,7 @@ function App() {
         savedGames={savedGames}
         currentGameData={gameData}
         currentGameInfo={gameInfo}
+        roster={roster}
       />
 
       <SavedGamesModal
