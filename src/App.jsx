@@ -453,11 +453,6 @@ function SaveGameModal({ isOpen, onClose, onSave, initialOpponent, initialDate }
   const [opponent, setOpponent] = useState(initialOpponent)
   const [date, setDate] = useState(initialDate)
 
-  useEffect(() => {
-    setOpponent(initialOpponent)
-    setDate(initialDate)
-  }, [initialOpponent, initialDate])
-
   if (!isOpen) return null
 
   return (
@@ -819,38 +814,44 @@ function BattingOrderRow({ player, slot, position, onSwapClick, canEdit }) {
   )
 }
 
-function FieldDiamond({ fieldAssignments, allPlayers, onPositionChange, positionConflicts, canEdit }) {
-  const PositionBubble = ({ position }) => {
-    const playerId = fieldAssignments[position]
-    const hasConflict = positionConflicts[position]
-    const player = allPlayers.find(p => p.id === playerId)
-
-    return (
-      <div className="flex flex-col items-center">
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-bold shadow-md
-          ${hasConflict ? 'bg-red-500 text-white' : 'bg-navy-700 text-amber-400 border-2 border-amber-400'}
-        `} style={{ backgroundColor: hasConflict ? undefined : '#1e3a5f' }}>
-          {position}
-        </div>
-        {canEdit ? (
-          <select
-            value={playerId || ''}
-            onChange={(e) => onPositionChange(position, e.target.value ? parseInt(e.target.value) : null)}
-            className="text-xs mt-1 w-24 px-1 py-1.5 border-2 border-amber-500 rounded bg-white text-gray-800 font-medium"
-          >
-            <option value="">None</option>
-            {allPlayers.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        ) : (
-          <div className="text-xs mt-1 w-24 px-1 py-1.5 text-center text-gray-800 font-medium bg-white/80 rounded">
-            {player?.name || '-'}
-          </div>
-        )}
+function PositionBubble({ position, playerId, hasConflict, player, canEdit, allPlayers, onPositionChange }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-bold shadow-md
+        ${hasConflict ? 'bg-red-500 text-white' : 'bg-navy-700 text-amber-400 border-2 border-amber-400'}
+      `} style={{ backgroundColor: hasConflict ? undefined : '#1e3a5f' }}>
+        {position}
       </div>
-    )
-  }
+      {canEdit ? (
+        <select
+          value={playerId || ''}
+          onChange={(e) => onPositionChange(position, e.target.value ? parseInt(e.target.value) : null)}
+          className="text-xs mt-1 w-24 px-1 py-1.5 border-2 border-amber-500 rounded bg-white text-gray-800 font-medium"
+        >
+          <option value="">None</option>
+          {allPlayers.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      ) : (
+        <div className="text-xs mt-1 w-24 px-1 py-1.5 text-center text-gray-800 font-medium bg-white/80 rounded">
+          {player?.name || '-'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FieldDiamond({ fieldAssignments, allPlayers, onPositionChange, positionConflicts, canEdit }) {
+  const getPositionProps = (position) => ({
+    position,
+    playerId: fieldAssignments[position],
+    hasConflict: positionConflicts[position],
+    player: allPlayers.find(p => p.id === fieldAssignments[position]),
+    canEdit,
+    allPlayers,
+    onPositionChange
+  })
 
   return (
     <div className="bg-emerald-600 rounded-lg p-6 relative shadow-lg">
@@ -860,24 +861,24 @@ function FieldDiamond({ fieldAssignments, allPlayers, onPositionChange, position
 
       <div className="relative">
         <div className="flex justify-between px-2 mb-6">
-          <PositionBubble position="LF" />
-          <PositionBubble position="CF" />
-          <PositionBubble position="RF" />
+          <PositionBubble {...getPositionProps("LF")} />
+          <PositionBubble {...getPositionProps("CF")} />
+          <PositionBubble {...getPositionProps("RF")} />
         </div>
 
         <div className="flex justify-center gap-16 my-5">
-          <PositionBubble position="SS" />
-          <PositionBubble position="2B" />
+          <PositionBubble {...getPositionProps("SS")} />
+          <PositionBubble {...getPositionProps("2B")} />
         </div>
 
         <div className="flex justify-between items-center px-6">
-          <PositionBubble position="3B" />
-          <PositionBubble position="P" />
-          <PositionBubble position="1B" />
+          <PositionBubble {...getPositionProps("3B")} />
+          <PositionBubble {...getPositionProps("P")} />
+          <PositionBubble {...getPositionProps("1B")} />
         </div>
 
         <div className="flex justify-center mt-5">
-          <PositionBubble position="C" />
+          <PositionBubble {...getPositionProps("C")} />
         </div>
       </div>
     </div>
