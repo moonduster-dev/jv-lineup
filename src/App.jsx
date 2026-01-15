@@ -1228,14 +1228,16 @@ function App() {
   }
 
   const handleSaveRoster = async (newRoster) => {
+    console.log('Saving roster to Firestore:', newRoster)
     setRoster(newRoster)
 
     setSyncStatus('saving')
     try {
       await setDoc(doc(db, 'settings', 'roster'), newRoster)
+      console.log('Roster saved successfully!')
       setSyncStatus('synced')
     } catch (error) {
-      console.error('Error saving roster:', error)
+      console.error('Error saving roster:', error.code, error.message)
       setSyncStatus('error')
     }
   }
