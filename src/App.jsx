@@ -932,15 +932,15 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:bg-white print:p-0">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto print:max-w-none print:max-h-none print:shadow-none print:rounded-none">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white print:static print:border-b-2">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:static print:bg-white print:p-0 print:block">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:overflow-visible">
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white print:static print:border-b-2 print:p-2">
           <div className="flex items-center gap-3">
             <img src="/GClogo.jpg" alt="GC Logo" className="w-10 h-10 object-contain hidden print:block" />
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Inning Substitutions</h3>
+              <h3 className="text-lg font-semibold text-gray-900 print:text-base">Inning Substitutions</h3>
               {gameInfo?.opponent && (
-                <p className="text-sm text-gray-600">vs {gameInfo.opponent} - {gameInfo.date}</p>
+                <p className="text-sm text-gray-600 print:text-xs">vs {gameInfo.opponent} - {gameInfo.date}</p>
               )}
             </div>
           </div>
@@ -960,51 +960,41 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
           </div>
         </div>
 
-        <div className="p-4 space-y-4 print:p-2 print:space-y-2">
+        <div className="p-4 space-y-3 print:p-2 print:grid print:grid-cols-2 print:gap-2 print:space-y-0">
           {INNINGS.map(inning => {
             const { battingChanges, fieldChanges } = getInningChanges(gameData, inning, allPlayersMap)
             const hasChanges = battingChanges.length > 0 || fieldChanges.length > 0
 
             return (
-              <div key={inning} className="border border-gray-200 rounded-lg overflow-hidden print:rounded print:border-gray-400">
-                <div className="px-4 py-2 font-bold text-white print:px-2 print:py-1 print:text-sm" style={{ backgroundColor: '#1e3a5f' }}>
+              <div key={inning} className="border border-gray-200 rounded-lg overflow-hidden print:rounded print:border-gray-400 print:break-inside-avoid">
+                <div className="px-3 py-1.5 font-bold text-white text-sm print:px-2 print:py-1 print:text-xs" style={{ backgroundColor: '#1e3a5f' }}>
                   Inning {inning}
                 </div>
-                <div className="p-3 print:p-2">
+                <div className="p-2 print:p-1.5 text-sm print:text-xs">
                   {inning === 1 ? (
-                    <p className="text-gray-500 text-sm italic print:text-xs">Starting lineup</p>
+                    <p className="text-gray-500 italic">Starting lineup</p>
                   ) : !gameData[inning] ? (
-                    <p className="text-gray-400 text-sm italic print:text-xs">Not yet played</p>
+                    <p className="text-gray-400 italic">Not yet played</p>
                   ) : !hasChanges ? (
-                    <p className="text-gray-500 text-sm italic print:text-xs">No changes</p>
+                    <p className="text-gray-500 italic">No changes</p>
                   ) : (
-                    <div className="space-y-2 print:space-y-1">
-                      {battingChanges.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase mb-1 print:mb-0">Batting</p>
-                          {battingChanges.map((change, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-amber-50 rounded mb-1 print:text-xs print:py-0.5 print:px-1 print:gap-1">
-                              <span className="font-bold text-amber-700">#{change.slot}</span>
-                              <span className="text-green-700 font-medium">{change.playerIn.name}</span>
-                              <span className="text-gray-400">←</span>
-                              <span className="text-red-600 line-through">{change.playerOut.name}</span>
-                            </div>
-                          ))}
+                    <div className="space-y-1">
+                      {battingChanges.map((change, idx) => (
+                        <div key={`b${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-amber-50 rounded text-xs">
+                          <span className="font-bold text-amber-700">#{change.slot}</span>
+                          <span className="text-green-700 font-medium">{change.playerIn.name}</span>
+                          <span className="text-gray-400">←</span>
+                          <span className="text-red-600 line-through">{change.playerOut.name}</span>
                         </div>
-                      )}
-                      {fieldChanges.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase mb-1 print:mb-0">Field</p>
-                          {fieldChanges.map((change, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-50 rounded mb-1 print:text-xs print:py-0.5 print:px-1 print:gap-1">
-                              <span className="font-bold text-blue-700 w-8 print:w-6">{change.position}</span>
-                              <span className="text-green-700 font-medium">{change.playerIn?.name || 'Empty'}</span>
-                              <span className="text-gray-400">←</span>
-                              <span className="text-red-600 line-through">{change.playerOut?.name || 'Empty'}</span>
-                            </div>
-                          ))}
+                      ))}
+                      {fieldChanges.map((change, idx) => (
+                        <div key={`f${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
+                          <span className="font-bold text-blue-700 w-6">{change.position}</span>
+                          <span className="text-green-700 font-medium">{change.playerIn?.name || '-'}</span>
+                          <span className="text-gray-400">←</span>
+                          <span className="text-red-600 line-through">{change.playerOut?.name || '-'}</span>
                         </div>
-                      )}
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1696,7 +1686,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen print:bg-white" style={{ backgroundColor: '#f8f6f0' }}>
+    <div className="min-h-screen print:hidden" style={{ backgroundColor: '#f8f6f0' }}>
       <div className="max-w-2xl mx-auto p-4">
         {/* Team Header */}
         <div className="flex items-center gap-3 mb-4 p-4 rounded-lg shadow-md" style={{ backgroundColor: '#1e3a5f' }}>
