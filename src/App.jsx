@@ -1686,6 +1686,7 @@ function App() {
   }
 
   return (
+    <>
     <div className="min-h-screen print:hidden" style={{ backgroundColor: '#f8f6f0' }}>
       <div className="max-w-2xl mx-auto p-4">
         {/* Team Header */}
@@ -1998,13 +1999,15 @@ function App() {
         canEdit={canEdit}
       />
 
+    </div>
+
       <InningSubsModal
         isOpen={inningSubsModal}
         onClose={() => setInningSubsModal(false)}
         gameData={gameData}
         gameInfo={gameInfo}
       />
-    </div>
+    </>
   )
 }
 
