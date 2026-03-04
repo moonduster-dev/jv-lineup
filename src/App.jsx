@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { db } from './firebase'
 import { doc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore'
 
@@ -996,11 +997,42 @@ function InningSubsModal({ isOpen, onClose, gameData }) {
   )
 }
 
-function BattingOrderRow({ player, slot, position, onSwapClick, canEdit, isChanged, previousPlayer }) {
+function DragHandle({ canEdit }) {
+  if (!canEdit) return null
+  return (
+    <div className="flex flex-col gap-0.5 mr-1 cursor-grab active:cursor-grabbing text-gray-400">
+      <div className="flex gap-0.5">
+        <div className="w-1 h-1 rounded-full bg-current"></div>
+        <div className="w-1 h-1 rounded-full bg-current"></div>
+      </div>
+      <div className="flex gap-0.5">
+        <div className="w-1 h-1 rounded-full bg-current"></div>
+        <div className="w-1 h-1 rounded-full bg-current"></div>
+      </div>
+      <div className="flex gap-0.5">
+        <div className="w-1 h-1 rounded-full bg-current"></div>
+        <div className="w-1 h-1 rounded-full bg-current"></div>
+      </div>
+    </div>
+  )
+}
+
+function BattingOrderRow({ player, slot, position, onSwapClick, canEdit, isChanged, previousPlayer, provided, isDragging, snapshot }) {
   const isEH = !position
+  const isDraggingOver = snapshot?.isDraggingOver
 
   return (
-    <div className={`flex items-center gap-2 p-3 rounded-lg border-2 shadow-sm ${isChanged ? 'border-green-400 bg-green-50' : 'border-amber-200 bg-white'}`}>
+    <div
+      ref={provided?.innerRef}
+      {...(provided?.draggableProps || {})}
+      {...(provided?.dragHandleProps || {})}
+      className={`flex items-center gap-2 p-3 rounded-lg border-2 shadow-sm transition-all
+        ${isDragging ? 'shadow-lg ring-2 ring-blue-400 opacity-90' : ''}
+        ${isDraggingOver ? 'border-blue-400 bg-blue-50' : ''}
+        ${isChanged ? 'border-green-400 bg-green-50' : 'border-amber-200 bg-white'}
+      `}
+    >
+      <DragHandle canEdit={canEdit} />
       <div className="w-9 h-9 flex items-center justify-center rounded-full text-sm font-bold text-amber-400 shadow" style={{ backgroundColor: '#1e3a5f' }}>
         {slot}
       </div>
@@ -1027,7 +1059,7 @@ function BattingOrderRow({ player, slot, position, onSwapClick, canEdit, isChang
 
       {canEdit && (
         <button
-          onClick={onSwapClick}
+          onClick={(e) => { e.stopPropagation(); onSwapClick(); }}
           className="px-3 py-2 text-white rounded-md hover:opacity-90 transition-colors text-sm font-medium whitespace-nowrap shadow"
           style={{ backgroundColor: '#1e3a5f' }}
         >
@@ -1039,11 +1071,16 @@ function BattingOrderRow({ player, slot, position, onSwapClick, canEdit, isChang
 }
 
 function PositionBubble({ position, playerId, hasConflict, player, canEdit, allPlayers, onPositionChange, isChanged, previousPlayer }) {
-  return (
-    <div className="flex flex-col items-center">
-      <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-bold shadow-md relative
+  const droppableContent = (provided, snapshot) => (
+    <div
+      ref={provided.innerRef}
+      {...provided.droppableProps}
+      className="flex flex-col items-center"
+    >
+      <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-bold shadow-md relative transition-all
+        ${snapshot.isDraggingOver ? 'ring-4 ring-blue-400 scale-110' : ''}
         ${hasConflict ? 'bg-red-500 text-white' : isChanged ? 'bg-green-500 text-white border-2 border-green-300' : 'bg-navy-700 text-amber-400 border-2 border-amber-400'}
-      `} style={{ backgroundColor: hasConflict ? undefined : isChanged ? undefined : '#1e3a5f' }}>
+      `} style={{ backgroundColor: hasConflict ? undefined : isChanged ? undefined : snapshot.isDraggingOver ? '#2563eb' : '#1e3a5f' }}>
         {position}
         {isChanged && (
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold">!</span>
@@ -1053,7 +1090,7 @@ function PositionBubble({ position, playerId, hasConflict, player, canEdit, allP
         <select
           value={playerId || ''}
           onChange={(e) => onPositionChange(position, e.target.value ? parseInt(e.target.value) : null)}
-          className={`text-xs mt-1 w-24 px-1 py-1.5 border-2 rounded bg-white text-gray-800 font-medium ${isChanged ? 'border-green-500' : 'border-amber-500'}`}
+          className={`text-xs mt-1 w-24 px-1 py-1.5 border-2 rounded bg-white text-gray-800 font-medium ${snapshot.isDraggingOver ? 'border-blue-500' : isChanged ? 'border-green-500' : 'border-amber-500'}`}
         >
           <option value="">None</option>
           {allPlayers.map(p => (
@@ -1068,7 +1105,35 @@ function PositionBubble({ position, playerId, hasConflict, player, canEdit, allP
           )}
         </div>
       )}
+      {provided.placeholder}
     </div>
+  )
+
+  if (!canEdit) {
+    return (
+      <div className="flex flex-col items-center">
+        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-sm font-bold shadow-md relative
+          ${hasConflict ? 'bg-red-500 text-white' : isChanged ? 'bg-green-500 text-white border-2 border-green-300' : 'bg-navy-700 text-amber-400 border-2 border-amber-400'}
+        `} style={{ backgroundColor: hasConflict ? undefined : isChanged ? undefined : '#1e3a5f' }}>
+          {position}
+          {isChanged && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-600 rounded-full flex items-center justify-center text-[10px] text-white font-bold">!</span>
+          )}
+        </div>
+        <div className={`text-xs mt-1 w-24 px-1 py-1.5 text-center font-medium rounded ${isChanged ? 'bg-green-100 text-green-800' : 'bg-white/80 text-gray-800'}`}>
+          {player?.name || '-'}
+          {isChanged && previousPlayer && (
+            <div className="text-[10px] text-red-500 line-through truncate">{previousPlayer.name}</div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Droppable droppableId={`field-${position}`} type="PLAYER">
+      {droppableContent}
+    </Droppable>
   )
 }
 
@@ -1249,6 +1314,15 @@ function App() {
   const currentData = gameData[currentInning] || gameData[1]
   const allPlayers = [...currentData.battingOrder, ...currentData.subs]
 
+  // Sort subs: empty/blank names go to bottom
+  const sortedSubs = [...currentData.subs].sort((a, b) => {
+    const aEmpty = !a.name || a.name.trim() === ''
+    const bEmpty = !b.name || b.name.trim() === ''
+    if (aEmpty && !bEmpty) return 1
+    if (!aEmpty && bEmpty) return -1
+    return 0
+  })
+
   // Get previous inning data for change detection
   const previousInningData = currentInning > 1 ? gameData[currentInning - 1] : null
   const previousAllPlayers = previousInningData ? [...previousInningData.battingOrder, ...previousInningData.subs] : null
@@ -1295,6 +1369,61 @@ function App() {
     const entry = Object.entries(currentData.fieldAssignments)
       .find(([, pid]) => pid === playerId)
     return entry ? entry[0] : null
+  }
+
+  // Unified drag-drop handler
+  const onDragEnd = (result) => {
+    const { source, destination, draggableId } = result
+    if (!destination) return
+    if (!canEdit) return
+
+    const sourceId = source.droppableId
+    const destId = destination.droppableId
+    const playerId = parseInt(draggableId.replace('player-', ''))
+    const player = allPlayers.find(p => p.id === playerId)
+
+    if (!player) return
+
+    // Dropped in same place
+    if (sourceId === destId && source.index === destination.index) return
+
+    // Handle field position drops
+    if (destId.startsWith('field-')) {
+      const position = destId.replace('field-', '')
+      handleFieldPositionChange(position, playerId)
+      return
+    }
+
+    // Handle batting order reordering (within batting order)
+    if (sourceId === 'batting-order' && destId === 'batting-order') {
+      const player1 = currentData.battingOrder[source.index]
+      const player2 = currentData.battingOrder[destination.index]
+      handleSwap(player1, player2, 'reorder')
+      return
+    }
+
+    // Handle sub-to-batting swap (bench player entering batting order)
+    if (sourceId === 'bench' && destId === 'batting-order') {
+      // Clamp index to valid range (0-8 for 9 batters)
+      const targetIndex = Math.min(destination.index, currentData.battingOrder.length - 1)
+      const targetPlayer = currentData.battingOrder[targetIndex]
+      if (!targetPlayer) return
+      // Let handleSwap manage the re-entry rules - it already has the logic
+      handleSwap(player, targetPlayer, 'substitute')
+      return
+    }
+
+    // Handle batting-to-bench swap (batting player going to bench)
+    if (sourceId === 'batting-order' && destId === 'bench') {
+      // Use sortedSubs since that's what's displayed
+      const dropIndex = Math.min(destination.index, sortedSubs.length - 1)
+      if (dropIndex >= 0) {
+        const targetSub = sortedSubs[dropIndex]
+        // Let handleSwap manage the re-entry rules
+        handleSwap(player, targetSub, 'substitute')
+      }
+      return
+    }
   }
 
   const handleFieldPositionChange = (position, playerId) => {
@@ -1373,12 +1502,7 @@ function App() {
 
             newBattingOrder[battingIndex1] = { ...fromSubs }
             newSubs[subIndex2] = { ...fromBatting }
-
-            Object.entries(newFieldAssignments).forEach(([pos, pid]) => {
-              if (pid === fromBatting.id) {
-                newFieldAssignments[pos] = fromSubs.id
-              }
-            })
+            // Field positions are managed independently - no automatic transfer
           }
           else if (subIndex1 !== -1 && battingIndex2 !== -1) {
             // Someone on bench (player1/fromSubs) is replacing player in batting order (player2/fromBatting)
@@ -1406,12 +1530,7 @@ function App() {
 
             newBattingOrder[battingIndex2] = { ...fromSubs }
             newSubs[subIndex1] = { ...fromBatting }
-
-            Object.entries(newFieldAssignments).forEach(([pos, pid]) => {
-              if (pid === fromBatting.id) {
-                newFieldAssignments[pos] = fromSubs.id
-              }
-            })
+            // Field positions are managed independently - no automatic transfer
           }
         }
 
@@ -1681,11 +1800,12 @@ function App() {
           setCurrentInning={handleInningChange}
         />
 
+        <DragDropContext onDragEnd={onDragEnd}>
         <div className="mb-4">
           <h2 className="text-lg font-bold mb-2" style={{ color: '#1e3a5f' }}>
             Inning {currentInning} - Field Positions
           </h2>
-          {canEdit && <p className="text-sm text-gray-600 mb-2">Select a player for each position</p>}
+          {canEdit && <p className="text-sm text-gray-600 mb-2">Drag players to positions or use dropdowns</p>}
           <FieldDiamond
             fieldAssignments={currentData.fieldAssignments}
             allPlayers={allPlayers}
@@ -1701,67 +1821,112 @@ function App() {
           fieldAssignments={currentData.fieldAssignments}
           battingOrder={currentData.battingOrder}
         />
-
-        <div className="mt-6">
-          <h2 className="text-lg font-bold mb-3" style={{ color: '#1e3a5f' }}>
-            Batting Order
-          </h2>
-          <div className="space-y-2">
-            {currentData.battingOrder.map((player, index) => {
-              const previousPlayer = previousInningData?.battingOrder[index]
-              const isChanged = previousPlayer && previousPlayer.id !== player.id
-              return (
-                <BattingOrderRow
-                  key={player.id}
-                  player={player}
-                  slot={index + 1}
-                  position={getPlayerPosition(player.id)}
-                  onSwapClick={() => setSwapModal({ isOpen: true, player })}
-                  canEdit={canEdit}
-                  isChanged={isChanged}
-                  previousPlayer={isChanged ? previousPlayer : null}
-                />
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="mt-6 mb-8">
-          <h2 className="text-lg font-bold mb-3" style={{ color: '#1e3a5f' }}>
-            Substitutes
-          </h2>
-          <div className="space-y-2">
-            {currentData.subs.map(sub => {
-              const fieldPosition = Object.entries(currentData.fieldAssignments)
-                .find(([, pid]) => pid === sub.id)?.[0]
-
-              return (
+          <div className="mt-6">
+            <h2 className="text-lg font-bold mb-3" style={{ color: '#1e3a5f' }}>
+              Batting Order
+              {canEdit && <span className="text-sm font-normal text-gray-500 ml-2">Drag to reorder or swap</span>}
+            </h2>
+            <Droppable droppableId="batting-order" type="PLAYER">
+              {(provided, snapshot) => (
                 <div
-                  key={sub.id}
-                  className="flex items-center gap-2 px-3 py-3 bg-white border-2 border-amber-200 rounded-lg shadow-sm"
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`space-y-2 p-2 rounded-lg transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50' : ''}`}
                 >
-                  <div className="flex-1 min-w-0 px-2 py-1 text-gray-800 font-medium">
-                    {sub.name}
-                  </div>
-                  {fieldPosition && (
-                    <span className="px-2 py-1.5 text-white rounded text-xs font-bold shadow" style={{ backgroundColor: '#1e3a5f' }}>
-                      {fieldPosition}
-                    </span>
-                  )}
-                  {canEdit && (
-                    <button
-                      onClick={() => setSwapModal({ isOpen: true, player: sub })}
-                      className="px-3 py-1.5 text-white rounded text-sm hover:opacity-90 transition-colors font-medium shadow"
-                      style={{ backgroundColor: '#1e3a5f' }}
-                    >
-                      Swap
-                    </button>
-                  )}
+                  {currentData.battingOrder.map((player, index) => {
+                    const previousPlayer = previousInningData?.battingOrder[index]
+                    const isChanged = previousPlayer && previousPlayer.id !== player.id
+                    return (
+                      <Draggable
+                        key={player.id}
+                        draggableId={`player-${player.id}`}
+                        index={index}
+                        isDragDisabled={!canEdit}
+                      >
+                        {(provided, snapshot) => (
+                          <BattingOrderRow
+                            player={player}
+                            slot={index + 1}
+                            position={getPlayerPosition(player.id)}
+                            onSwapClick={() => setSwapModal({ isOpen: true, player })}
+                            canEdit={canEdit}
+                            isChanged={isChanged}
+                            previousPlayer={isChanged ? previousPlayer : null}
+                            provided={provided}
+                            isDragging={snapshot.isDragging}
+                            snapshot={snapshot}
+                          />
+                        )}
+                      </Draggable>
+                    )
+                  })}
+                  {provided.placeholder}
                 </div>
-              )
-            })}
+              )}
+            </Droppable>
           </div>
-        </div>
+
+          <div className="mt-6 mb-8">
+            <h2 className="text-lg font-bold mb-3" style={{ color: '#1e3a5f' }}>
+              Substitutes
+              {canEdit && <span className="text-sm font-normal text-gray-500 ml-2">Drag to swap into batting order</span>}
+            </h2>
+            <Droppable droppableId="bench" type="PLAYER">
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`space-y-2 p-2 rounded-lg transition-colors ${snapshot.isDraggingOver ? 'bg-amber-50' : ''}`}
+                >
+                  {sortedSubs.map((sub, index) => {
+                    const fieldPosition = Object.entries(currentData.fieldAssignments)
+                      .find(([, pid]) => pid === sub.id)?.[0]
+
+                    return (
+                      <Draggable
+                        key={sub.id}
+                        draggableId={`player-${sub.id}`}
+                        index={index}
+                        isDragDisabled={!canEdit || !sub.name || sub.name.trim() === ''}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`flex items-center gap-2 px-3 py-3 bg-white border-2 border-amber-200 rounded-lg shadow-sm transition-all
+                              ${snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-400 opacity-90' : ''}
+                            `}
+                          >
+                            <DragHandle canEdit={canEdit} />
+                            <div className="flex-1 min-w-0 px-2 py-1 text-gray-800 font-medium">
+                              {sub.name}
+                            </div>
+                            {fieldPosition && (
+                              <span className="px-2 py-1.5 text-white rounded text-xs font-bold shadow" style={{ backgroundColor: '#1e3a5f' }}>
+                                {fieldPosition}
+                              </span>
+                            )}
+                            {canEdit && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSwapModal({ isOpen: true, player: sub }); }}
+                                className="px-3 py-1.5 text-white rounded text-sm hover:opacity-90 transition-colors font-medium shadow"
+                                style={{ backgroundColor: '#1e3a5f' }}
+                              >
+                                Swap
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    )
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        </DragDropContext>
       </div>
 
       <PasswordModal
