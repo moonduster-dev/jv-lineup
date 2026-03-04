@@ -914,7 +914,7 @@ function getInningChanges(gameData, inning, allPlayersMap) {
   return { battingChanges, fieldChanges }
 }
 
-function InningSubsModal({ isOpen, onClose, gameData }) {
+function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
   if (!isOpen) return null
 
   // Build a map of all players across all innings
@@ -927,43 +927,63 @@ function InningSubsModal({ isOpen, onClose, gameData }) {
     }
   })
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white">
-          <h3 className="text-lg font-semibold text-gray-900">Inning Substitutions</h3>
-          <button
-            onClick={onClose}
-            className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
-          >
-            Close
-          </button>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:bg-white print:p-0">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto print:max-w-none print:max-h-none print:shadow-none print:rounded-none">
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white print:static print:border-b-2">
+          <div className="flex items-center gap-3">
+            <img src="/GClogo.jpg" alt="GC Logo" className="w-10 h-10 object-contain hidden print:block" />
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Inning Substitutions</h3>
+              {gameInfo?.opponent && (
+                <p className="text-sm text-gray-600">vs {gameInfo.opponent} - {gameInfo.date}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 print:hidden">
+            <button
+              onClick={handlePrint}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              Print
+            </button>
+            <button
+              onClick={onClose}
+              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 print:p-2 print:space-y-2">
           {INNINGS.map(inning => {
             const { battingChanges, fieldChanges } = getInningChanges(gameData, inning, allPlayersMap)
             const hasChanges = battingChanges.length > 0 || fieldChanges.length > 0
 
             return (
-              <div key={inning} className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="px-4 py-2 font-bold text-white" style={{ backgroundColor: '#1e3a5f' }}>
+              <div key={inning} className="border border-gray-200 rounded-lg overflow-hidden print:rounded print:border-gray-400">
+                <div className="px-4 py-2 font-bold text-white print:px-2 print:py-1 print:text-sm" style={{ backgroundColor: '#1e3a5f' }}>
                   Inning {inning}
                 </div>
-                <div className="p-3">
+                <div className="p-3 print:p-2">
                   {inning === 1 ? (
-                    <p className="text-gray-500 text-sm italic">Starting lineup</p>
+                    <p className="text-gray-500 text-sm italic print:text-xs">Starting lineup</p>
                   ) : !gameData[inning] ? (
-                    <p className="text-gray-400 text-sm italic">Not yet played</p>
+                    <p className="text-gray-400 text-sm italic print:text-xs">Not yet played</p>
                   ) : !hasChanges ? (
-                    <p className="text-gray-500 text-sm italic">No changes from previous inning</p>
+                    <p className="text-gray-500 text-sm italic print:text-xs">No changes</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2 print:space-y-1">
                       {battingChanges.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Batting Order</p>
+                          <p className="text-xs font-semibold text-gray-500 uppercase mb-1 print:mb-0">Batting</p>
                           {battingChanges.map((change, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-amber-50 rounded mb-1">
+                            <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-amber-50 rounded mb-1 print:text-xs print:py-0.5 print:px-1 print:gap-1">
                               <span className="font-bold text-amber-700">#{change.slot}</span>
                               <span className="text-green-700 font-medium">{change.playerIn.name}</span>
                               <span className="text-gray-400">←</span>
@@ -974,10 +994,10 @@ function InningSubsModal({ isOpen, onClose, gameData }) {
                       )}
                       {fieldChanges.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Field Positions</p>
+                          <p className="text-xs font-semibold text-gray-500 uppercase mb-1 print:mb-0">Field</p>
                           {fieldChanges.map((change, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-50 rounded mb-1">
-                              <span className="font-bold text-blue-700 w-8">{change.position}</span>
+                            <div key={idx} className="flex items-center gap-2 text-sm py-1 px-2 bg-blue-50 rounded mb-1 print:text-xs print:py-0.5 print:px-1 print:gap-1">
+                              <span className="font-bold text-blue-700 w-8 print:w-6">{change.position}</span>
                               <span className="text-green-700 font-medium">{change.playerIn?.name || 'Empty'}</span>
                               <span className="text-gray-400">←</span>
                               <span className="text-red-600 line-through">{change.playerOut?.name || 'Empty'}</span>
@@ -1992,6 +2012,7 @@ function App() {
         isOpen={inningSubsModal}
         onClose={() => setInningSubsModal(false)}
         gameData={gameData}
+        gameInfo={gameInfo}
       />
     </div>
   )
