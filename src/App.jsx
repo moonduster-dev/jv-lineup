@@ -1025,8 +1025,15 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
   if (!isOpen) return null
 
   const battingOrder = gameData[1]?.battingOrder || []
-  const subs = gameData[1]?.subs || []
   const fieldAssignments = gameData[1]?.fieldAssignments || {}
+
+  // Build lookup map from current roster (to get updated names/jerseys)
+  const allRosterPlayers = [...roster.players, ...roster.subs]
+  const rosterMap = {}
+  allRosterPlayers.forEach(p => { rosterMap[p.id] = p })
+
+  // Get current player data from roster
+  const getPlayerFromRoster = (playerId) => rosterMap[playerId] || null
 
   const getPlayerPosition = (playerId) => {
     const entry = Object.entries(fieldAssignments).find(([, id]) => id === playerId)
@@ -1100,8 +1107,9 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
 
             {/* Batting Order Rows */}
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((order, idx) => {
-              const player = battingOrder[idx]
-              const position = player ? getPlayerPosition(player.id) : ''
+              const gamePlayer = battingOrder[idx]
+              const player = gamePlayer ? getPlayerFromRoster(gamePlayer.id) : null
+              const position = gamePlayer ? getPlayerPosition(gamePlayer.id) : ''
               return (
                 <div key={order} className="flex border-b border-gray-400 min-h-[36px]">
                   <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xl" style={{ color: '#1e3a5f' }}>
@@ -1124,7 +1132,7 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
             })}
 
             {/* FLEX Row */}
-            <div className="flex border-b border-gray-800 min-h-[36px] bg-gray-50">
+            <div className="flex border-b border-gray-400 min-h-[36px] bg-gray-50">
               <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xs" style={{ color: '#1e3a5f' }}>
                 FLEX
               </div>
@@ -1135,6 +1143,49 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
               <div className="w-12 p-1 border-r border-gray-400"></div>
               <div className="w-10 p-1"></div>
             </div>
+
+            {/* 3 Blank Rows */}
+            {[1, 2, 3].map((row) => (
+              <div key={`blank-${row}`} className="flex border-b border-gray-400 min-h-[36px]">
+                <div className="w-12 p-1 border-r border-gray-400"></div>
+                <div className="w-10 p-1 border-r border-gray-400"></div>
+                <div className="flex-1 p-1 border-r border-gray-400"></div>
+                <div className="w-12 p-1 border-r border-gray-400"></div>
+                <div className="flex-1 p-1 border-r border-gray-400"></div>
+                <div className="w-12 p-1 border-r border-gray-400"></div>
+                <div className="w-10 p-1"></div>
+              </div>
+            ))}
+
+            {/* Subs Section */}
+            <div className="flex bg-gray-800 text-white text-xs font-bold">
+              <div className="w-12 p-1.5 text-center border-r border-gray-600">SUBS</div>
+              <div className="w-10 p-1.5 text-center border-r border-gray-600">#</div>
+              <div className="flex-1 p-1.5 border-r border-gray-600">NAME</div>
+              <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
+              <div className="flex-1 p-1.5 border-r border-gray-600"></div>
+              <div className="w-12 p-1.5 text-center border-r border-gray-600"></div>
+              <div className="w-10 p-1.5 text-center"></div>
+            </div>
+
+            {/* Sub Rows */}
+            {roster.subs.map((sub, idx) => (
+              <div key={sub.id} className="flex border-b border-gray-400 min-h-[32px]">
+                <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 text-sm text-gray-500">
+                  {idx + 1}
+                </div>
+                <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 text-sm">
+                  {sub.jersey || ''}
+                </div>
+                <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm">
+                  {sub.name}
+                </div>
+                <div className="w-12 p-1 border-r border-gray-400"></div>
+                <div className="flex-1 p-1 border-r border-gray-400"></div>
+                <div className="w-12 p-1 border-r border-gray-400"></div>
+                <div className="w-10 p-1"></div>
+              </div>
+            ))}
 
             {/* Roster Section */}
             <div className="p-2 bg-gray-100 border-t border-gray-800">
