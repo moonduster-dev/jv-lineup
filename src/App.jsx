@@ -1007,6 +1007,139 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
   )
 }
 
+function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
+  if (!isOpen) return null
+
+  const battingOrder = gameData[1]?.battingOrder || []
+  const subs = gameData[1]?.subs || []
+  const fieldAssignments = gameData[1]?.fieldAssignments || {}
+
+  const getPlayerPosition = (playerId) => {
+    const entry = Object.entries(fieldAssignments).find(([, id]) => id === playerId)
+    return entry ? entry[0] : ''
+  }
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:static print:bg-white print:p-0 print:block">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl print:max-w-none print:shadow-none print:rounded-none">
+        {/* Print Header */}
+        <div className="print:hidden p-3 border-b flex justify-between items-center">
+          <h3 className="font-semibold text-gray-900">Umpire Lineup Card</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={handlePrint}
+              className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+            >
+              Print
+            </button>
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        {/* Lineup Card */}
+        <div className="p-4 print:p-0">
+          <div className="border-2 border-gray-800 print:border-black">
+            {/* Header */}
+            <div className="text-center py-3 border-b-2 border-gray-800" style={{ backgroundColor: '#1e3a5f' }}>
+              <div className="flex items-center justify-center gap-3">
+                <img src="/GClogo.jpg" alt="Logo" className="w-12 h-12 object-contain rounded bg-white p-1" />
+                <div>
+                  <h1 className="text-lg font-bold text-white tracking-wide">OUR LADY OF GOOD COUNSEL</h1>
+                  <h2 className="text-base font-bold text-amber-400">FALCONS SOFTBALL</h2>
+                </div>
+              </div>
+              <p className="text-sm text-gray-200 mt-1">Bob Simmerly, Head Coach</p>
+            </div>
+
+            {/* Game Info Row */}
+            <div className="flex border-b border-gray-800 text-sm">
+              <div className="flex-1 p-2 border-r border-gray-800">
+                <span className="font-semibold">Date:</span> {gameInfo?.date || '____________'}
+              </div>
+              <div className="flex-1 p-2 border-r border-gray-800">
+                <span className="font-semibold">vs.</span> {gameInfo?.opponent || '____________'}
+              </div>
+              <div className="flex-1 p-2">
+                <span className="font-semibold">Game:</span> ____________
+              </div>
+            </div>
+
+            {/* Column Headers */}
+            <div className="flex bg-gray-800 text-white text-xs font-bold">
+              <div className="w-12 p-1.5 text-center border-r border-gray-600">ORDER</div>
+              <div className="w-10 p-1.5 text-center border-r border-gray-600">#</div>
+              <div className="flex-1 p-1.5 border-r border-gray-600">STARTER</div>
+              <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
+              <div className="flex-1 p-1.5 border-r border-gray-600">SUBSTITUTE</div>
+              <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
+              <div className="w-10 p-1.5 text-center">INN</div>
+            </div>
+
+            {/* Batting Order Rows */}
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((order, idx) => {
+              const player = battingOrder[idx]
+              const position = player ? getPlayerPosition(player.id) : ''
+              return (
+                <div key={order} className="flex border-b border-gray-400 min-h-[36px]">
+                  <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xl" style={{ color: '#1e3a5f' }}>
+                    {order}
+                  </div>
+                  <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 text-sm">
+                    {player?.id || ''}
+                  </div>
+                  <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm font-medium">
+                    {player?.name || ''}
+                  </div>
+                  <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 text-sm font-medium">
+                    {position}
+                  </div>
+                  <div className="flex-1 p-1 border-r border-gray-400"></div>
+                  <div className="w-12 p-1 border-r border-gray-400"></div>
+                  <div className="w-10 p-1"></div>
+                </div>
+              )
+            })}
+
+            {/* FLEX Row */}
+            <div className="flex border-b border-gray-800 min-h-[36px] bg-gray-50">
+              <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xs" style={{ color: '#1e3a5f' }}>
+                FLEX
+              </div>
+              <div className="w-10 p-1 border-r border-gray-400"></div>
+              <div className="flex-1 p-1 border-r border-gray-400"></div>
+              <div className="w-12 p-1 border-r border-gray-400"></div>
+              <div className="flex-1 p-1 border-r border-gray-400"></div>
+              <div className="w-12 p-1 border-r border-gray-400"></div>
+              <div className="w-10 p-1"></div>
+            </div>
+
+            {/* Roster Section */}
+            <div className="p-2 bg-gray-100 border-t border-gray-800">
+              <div className="grid grid-cols-5 gap-x-4 gap-y-0.5 text-xs">
+                {[...roster.players, ...roster.subs].map((player) => (
+                  <div key={player.id} className="flex gap-1">
+                    <span className="font-bold w-4">{player.id}</span>
+                    <span>{player.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DragHandle({ canEdit }) {
   if (!canEdit) return null
   return (
@@ -1256,6 +1389,7 @@ function App() {
   const [rosterModal, setRosterModal] = useState(false)
   const [passwordModal, setPasswordModal] = useState(false)
   const [inningSubsModal, setInningSubsModal] = useState(false)
+  const [umpireCardModal, setUmpireCardModal] = useState(false)
   const [savedGames, setSavedGames] = useState([])
   const [gameInfo, setGameInfo] = useState({
     opponent: '',
@@ -1795,6 +1929,13 @@ function App() {
           >
             Inning Subs
           </button>
+          <button
+            onClick={() => setUmpireCardModal(true)}
+            className="px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors text-sm font-medium shadow"
+            style={{ backgroundColor: '#1e3a5f' }}
+          >
+            Umpire Card
+          </button>
           {canEdit && (
             <button
               onClick={() => setRosterModal(true)}
@@ -2006,6 +2147,14 @@ function App() {
         onClose={() => setInningSubsModal(false)}
         gameData={gameData}
         gameInfo={gameInfo}
+      />
+
+      <UmpireLineupCard
+        isOpen={umpireCardModal}
+        onClose={() => setUmpireCardModal(false)}
+        gameData={gameData}
+        gameInfo={gameInfo}
+        roster={roster}
       />
     </>
   )
