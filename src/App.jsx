@@ -1046,10 +1046,20 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:static print:bg-white print:p-0 print:block">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl print:max-w-none print:shadow-none print:rounded-none">
-        {/* Print Header */}
-        <div className="print:hidden p-3 border-b flex justify-between items-center">
+    <>
+      <style>{`
+        @media print {
+          @page {
+            size: 4.5in 8in;
+            margin: 0.15in;
+          }
+          body { margin: 0; }
+        }
+      `}</style>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:static print:bg-white print:p-0 print:block">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl print:max-w-none print:shadow-none print:rounded-none print:w-[4.2in]">
+          {/* Print Header */}
+          <div className="print:hidden p-3 border-b flex justify-between items-center">
           <h3 className="font-semibold text-gray-900">Umpire Lineup Card</h3>
           <div className="flex gap-2">
             <button
@@ -1069,40 +1079,40 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
 
         {/* Lineup Card */}
         <div className="p-4 print:p-0">
-          <div className="border-2 border-gray-800 print:border-black">
+          <div className="border-2 border-gray-800 print:border-black print:border">
             {/* Header */}
-            <div className="text-center py-3 border-b-2 border-gray-800" style={{ backgroundColor: '#1e3a5f' }}>
-              <div className="flex items-center justify-center gap-3">
-                <img src="/GClogo.jpg" alt="Logo" className="w-12 h-12 object-contain rounded bg-white p-1" />
+            <div className="text-center py-3 print:py-1 border-b-2 border-gray-800 print:border-b" style={{ backgroundColor: '#1e3a5f' }}>
+              <div className="flex items-center justify-center gap-3 print:gap-1">
+                <img src="/GClogo.jpg" alt="Logo" className="w-12 h-12 print:w-6 print:h-6 object-contain rounded bg-white p-1 print:p-0.5" />
                 <div>
-                  <h1 className="text-lg font-bold text-white tracking-wide">OUR LADY OF GOOD COUNSEL</h1>
-                  <h2 className="text-base font-bold text-amber-400">FALCONS SOFTBALL</h2>
+                  <h1 className="text-lg print:text-[8px] font-bold text-white tracking-wide print:tracking-normal">OUR LADY OF GOOD COUNSEL</h1>
+                  <h2 className="text-base print:text-[7px] font-bold text-amber-400">FALCONS SOFTBALL</h2>
                 </div>
               </div>
-              <p className="text-sm text-gray-200 mt-1">Bob Simmerly, Head Coach</p>
+              <p className="text-sm print:text-[6px] text-gray-200 mt-1 print:mt-0">Bob Simmerly, Head Coach</p>
             </div>
 
             {/* Game Info Row */}
-            <div className="flex border-b border-gray-800 text-sm">
-              <div className="flex-1 p-2 border-r border-gray-800">
-                <span className="font-semibold">Date:</span> {gameInfo?.date || '____________'}
+            <div className="flex border-b border-gray-800 text-sm print:text-[6px]">
+              <div className="flex-1 p-2 print:p-0.5 border-r border-gray-800">
+                <span className="font-semibold">Date:</span> {gameInfo?.date || '______'}
               </div>
-              <div className="flex-1 p-2 border-r border-gray-800">
-                <span className="font-semibold">vs.</span> {gameInfo?.opponent || '____________'}
+              <div className="flex-1 p-2 print:p-0.5 border-r border-gray-800">
+                <span className="font-semibold">vs.</span> {gameInfo?.opponent || '______'}
               </div>
-              <div className="flex-1 p-2">
-                <span className="font-semibold">Game:</span> ____________
+              <div className="flex-1 p-2 print:p-0.5">
+                <span className="font-semibold">Game:</span> ______
               </div>
             </div>
 
             {/* Column Headers */}
-            <div className="flex bg-gray-800 text-white text-xs font-bold">
-              <div className="w-12 p-1.5 text-center border-r border-gray-600">ORDER</div>
-              <div className="w-10 p-1.5 text-center border-r border-gray-600">#</div>
-              <div className="flex-1 p-1.5 border-r border-gray-600">STARTER</div>
-              <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
-              <div className="flex-1 p-1.5 border-r border-gray-600">SUBSTITUTE</div>
-              <div className="w-12 p-1.5 text-center">POS</div>
+            <div className="flex bg-gray-800 text-white text-xs print:text-[5px] font-bold">
+              <div className="w-12 print:w-6 p-1.5 print:p-0.5 text-center border-r border-gray-600">ORDER</div>
+              <div className="w-10 print:w-5 p-1.5 print:p-0.5 text-center border-r border-gray-600">#</div>
+              <div className="flex-1 p-1.5 print:p-0.5 border-r border-gray-600">STARTER</div>
+              <div className="w-12 print:w-6 p-1.5 print:p-0.5 text-center border-r border-gray-600">POS</div>
+              <div className="flex-1 p-1.5 print:p-0.5 border-r border-gray-600">SUBSTITUTE</div>
+              <div className="w-12 print:w-6 p-1.5 print:p-0.5 text-center">POS</div>
             </div>
 
             {/* Batting Order Rows */}
@@ -1111,82 +1121,82 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
               const player = gamePlayer ? getPlayerFromRoster(gamePlayer.id) : null
               const position = gamePlayer ? getPlayerPosition(gamePlayer.id) : ''
               return (
-                <div key={order} className="flex border-b border-gray-400 min-h-[36px]">
-                  <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 text-sm text-gray-500">
+                <div key={order} className="flex border-b border-gray-400 min-h-[36px] print:min-h-[14px]">
+                  <div className="w-12 print:w-6 p-1 print:p-0 flex items-center justify-center border-r border-gray-400 text-sm print:text-[6px] text-gray-500">
                     {order}
                   </div>
-                  <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xl" style={{ color: '#1e3a5f' }}>
+                  <div className="w-10 print:w-5 p-1 print:p-0 flex items-center justify-center border-r border-gray-400 font-bold text-xl print:text-[8px]" style={{ color: '#1e3a5f' }}>
                     {player?.jersey || ''}
                   </div>
-                  <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm font-medium">
+                  <div className="flex-1 p-1 print:p-0 print:pl-0.5 flex items-center border-r border-gray-400 text-sm print:text-[6px] font-medium">
                     {player?.name || ''}
                   </div>
-                  <div className="w-12 p-1 flex items-center justify-start border-r border-gray-400 text-sm font-medium relative" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}>
+                  <div className="w-12 print:w-6 p-1 print:p-0 flex items-center justify-start border-r border-gray-400 text-sm print:text-[6px] font-medium relative" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}>
                     <span className="pl-0.5">{position}</span>
                   </div>
-                  <div className="flex-1 p-1 border-r border-gray-400"></div>
-                  <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
+                  <div className="flex-1 p-1 print:p-0 border-r border-gray-400"></div>
+                  <div className="w-12 print:w-6 p-1 print:p-0 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
                 </div>
               )
             })}
 
             {/* FLEX Row */}
-            <div className="flex border-b border-gray-400 min-h-[36px] bg-gray-50">
-              <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xs" style={{ color: '#1e3a5f' }}>
+            <div className="flex border-b border-gray-400 min-h-[36px] print:min-h-[14px] bg-gray-50">
+              <div className="w-12 print:w-6 p-1 print:p-0 flex items-center justify-center border-r border-gray-400 font-bold text-xs print:text-[5px]" style={{ color: '#1e3a5f' }}>
                 FLEX
               </div>
-              <div className="w-10 p-1 border-r border-gray-400"></div>
-              <div className="flex-1 p-1 border-r border-gray-400"></div>
-              <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
-              <div className="flex-1 p-1 border-r border-gray-400"></div>
-              <div className="w-12 p-1" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
+              <div className="w-10 print:w-5 p-1 print:p-0 border-r border-gray-400"></div>
+              <div className="flex-1 p-1 print:p-0 border-r border-gray-400"></div>
+              <div className="w-12 print:w-6 p-1 print:p-0 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
+              <div className="flex-1 p-1 print:p-0 border-r border-gray-400"></div>
+              <div className="w-12 print:w-6 p-1 print:p-0" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
             </div>
 
             {/* 3 Blank Rows */}
             {[1, 2, 3].map((row) => (
-              <div key={`blank-${row}`} className="flex border-b border-gray-400 min-h-[36px]">
-                <div className="w-12 p-1 border-r border-gray-400"></div>
-                <div className="w-10 p-1 border-r border-gray-400"></div>
-                <div className="flex-1 p-1 border-r border-gray-400"></div>
-                <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
-                <div className="flex-1 p-1 border-r border-gray-400"></div>
-                <div className="w-12 p-1" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
+              <div key={`blank-${row}`} className="flex border-b border-gray-400 min-h-[36px] print:min-h-[14px]">
+                <div className="w-12 print:w-6 p-1 print:p-0 border-r border-gray-400"></div>
+                <div className="w-10 print:w-5 p-1 print:p-0 border-r border-gray-400"></div>
+                <div className="flex-1 p-1 print:p-0 border-r border-gray-400"></div>
+                <div className="w-12 print:w-6 p-1 print:p-0 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
+                <div className="flex-1 p-1 print:p-0 border-r border-gray-400"></div>
+                <div className="w-12 print:w-6 p-1 print:p-0" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
               </div>
             ))}
 
             {/* Subs Section */}
-            <div className="flex bg-gray-800 text-white text-xs font-bold">
-              <div className="w-12 p-1.5 text-center border-r border-gray-600">SUBS</div>
-              <div className="w-10 p-1.5 text-center border-r border-gray-600">#</div>
-              <div className="flex-1 p-1.5 border-r border-gray-600">NAME</div>
-              <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
-              <div className="flex-1 p-1.5 border-r border-gray-600"></div>
-              <div className="w-12 p-1.5 text-center">POS</div>
+            <div className="flex bg-gray-800 text-white text-xs print:text-[5px] font-bold">
+              <div className="w-12 print:w-6 p-1.5 print:p-0.5 text-center border-r border-gray-600">SUBS</div>
+              <div className="w-10 print:w-5 p-1.5 print:p-0.5 text-center border-r border-gray-600">#</div>
+              <div className="flex-1 p-1.5 print:p-0.5 border-r border-gray-600">NAME</div>
+              <div className="w-12 print:w-6 p-1.5 print:p-0.5 text-center border-r border-gray-600">POS</div>
+              <div className="flex-1 p-1.5 print:p-0.5 border-r border-gray-600"></div>
+              <div className="w-12 print:w-6 p-1.5 print:p-0.5 text-center">POS</div>
             </div>
 
             {/* Sub Rows */}
             {gameSubs.map((gameSub, idx) => {
               const sub = getPlayerFromRoster(gameSub.id)
               return (
-              <div key={gameSub.id} className="flex border-b border-gray-400 min-h-[32px]">
-                <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 text-sm text-gray-500">
+              <div key={gameSub.id} className="flex border-b border-gray-400 min-h-[32px] print:min-h-[12px]">
+                <div className="w-12 print:w-6 p-1 print:p-0 flex items-center justify-center border-r border-gray-400 text-sm print:text-[6px] text-gray-500">
                   {idx + 1}
                 </div>
-                <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xl" style={{ color: '#1e3a5f' }}>
+                <div className="w-10 print:w-5 p-1 print:p-0 flex items-center justify-center border-r border-gray-400 font-bold text-xl print:text-[8px]" style={{ color: '#1e3a5f' }}>
                   {sub?.jersey || ''}
                 </div>
-                <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm">
+                <div className="flex-1 p-1 print:p-0 print:pl-0.5 flex items-center border-r border-gray-400 text-sm print:text-[6px]">
                   {sub?.name || ''}
                 </div>
-                <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
-                <div className="flex-1 p-1 border-r border-gray-400"></div>
-                <div className="w-12 p-1" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
+                <div className="w-12 print:w-6 p-1 print:p-0 border-r border-gray-400" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
+                <div className="flex-1 p-1 print:p-0 border-r border-gray-400"></div>
+                <div className="w-12 print:w-6 p-1 print:p-0" style={{ background: 'linear-gradient(to bottom right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
               </div>
               )
             })}
 
-            {/* Roster Section */}
-            <div className="p-2 bg-gray-100 border-t border-gray-800">
+            {/* Roster Section - hidden on print */}
+            <div className="p-2 bg-gray-100 border-t border-gray-800 print:hidden">
               <div className="grid grid-cols-5 gap-x-4 gap-y-0.5 text-xs">
                 {[...roster.players, ...roster.subs].map((player) => (
                   <div key={player.id} className="flex gap-1">
@@ -1200,6 +1210,7 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
