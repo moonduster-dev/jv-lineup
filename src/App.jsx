@@ -11,22 +11,22 @@ const EDIT_PASSWORD = 'bob2026'
 
 const createDefaultRoster = () => ({
   players: [
-    { id: 1, name: 'Player 1' },
-    { id: 2, name: 'Player 2' },
-    { id: 3, name: 'Player 3' },
-    { id: 4, name: 'Player 4' },
-    { id: 5, name: 'Player 5' },
-    { id: 6, name: 'Player 6' },
-    { id: 7, name: 'Player 7' },
-    { id: 8, name: 'Player 8' },
-    { id: 9, name: 'Player 9' },
+    { id: 1, name: 'Player 1', jersey: '1' },
+    { id: 2, name: 'Player 2', jersey: '2' },
+    { id: 3, name: 'Player 3', jersey: '3' },
+    { id: 4, name: 'Player 4', jersey: '4' },
+    { id: 5, name: 'Player 5', jersey: '5' },
+    { id: 6, name: 'Player 6', jersey: '6' },
+    { id: 7, name: 'Player 7', jersey: '7' },
+    { id: 8, name: 'Player 8', jersey: '8' },
+    { id: 9, name: 'Player 9', jersey: '9' },
   ],
   subs: [
-    { id: 10, name: 'Sub 1' },
-    { id: 11, name: 'Sub 2' },
-    { id: 12, name: 'Sub 3' },
-    { id: 13, name: 'Sub 4' },
-    { id: 14, name: 'Sub 5' },
+    { id: 10, name: 'Sub 1', jersey: '10' },
+    { id: 11, name: 'Sub 2', jersey: '11' },
+    { id: 12, name: 'Sub 3', jersey: '12' },
+    { id: 13, name: 'Sub 4', jersey: '13' },
+    { id: 14, name: 'Sub 5', jersey: '14' },
   ]
 })
 
@@ -153,12 +153,12 @@ function RosterModal({ isOpen, onClose, roster, onSave }) {
 
   if (!isOpen) return null
 
-  const handlePlayerChange = (id, name) => {
-    setPlayers(prev => prev.map(p => p.id === id ? { ...p, name } : p))
+  const handlePlayerChange = (id, field, value) => {
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
   }
 
-  const handleSubChange = (id, name) => {
-    setSubs(prev => prev.map(p => p.id === id ? { ...p, name } : p))
+  const handleSubChange = (id, field, value) => {
+    setSubs(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
   }
 
   const handleSave = () => {
@@ -177,14 +177,21 @@ function RosterModal({ isOpen, onClose, roster, onSave }) {
         <div className="p-4">
           <h4 className="font-medium text-gray-800 mb-2">Starting Players (9)</h4>
           <div className="space-y-2 mb-4">
-            {players.map((player, index) => (
+            {players.map((player) => (
               <div key={player.id} className="flex items-center gap-2">
-                <span className="w-6 text-sm text-gray-500">#{index + 1}</span>
+                <input
+                  type="text"
+                  value={player.jersey || ''}
+                  onChange={(e) => handlePlayerChange(player.id, 'jersey', e.target.value)}
+                  className="w-12 px-2 py-1 border border-gray-300 rounded text-gray-800 text-center"
+                  placeholder="#"
+                />
                 <input
                   type="text"
                   value={player.name}
-                  onChange={(e) => handlePlayerChange(player.id, e.target.value)}
+                  onChange={(e) => handlePlayerChange(player.id, 'name', e.target.value)}
                   className="flex-1 px-2 py-1 border border-gray-300 rounded text-gray-800"
+                  placeholder="Player name"
                 />
               </div>
             ))}
@@ -194,12 +201,19 @@ function RosterModal({ isOpen, onClose, roster, onSave }) {
           <div className="space-y-2">
             {subs.map((sub) => (
               <div key={sub.id} className="flex items-center gap-2">
-                <span className="w-6 text-sm text-gray-500">S</span>
+                <input
+                  type="text"
+                  value={sub.jersey || ''}
+                  onChange={(e) => handleSubChange(sub.id, 'jersey', e.target.value)}
+                  className="w-12 px-2 py-1 border border-gray-300 rounded text-gray-800 text-center"
+                  placeholder="#"
+                />
                 <input
                   type="text"
                   value={sub.name}
-                  onChange={(e) => handleSubChange(sub.id, e.target.value)}
+                  onChange={(e) => handleSubChange(sub.id, 'name', e.target.value)}
                   className="flex-1 px-2 py-1 border border-gray-300 rounded text-gray-800"
+                  placeholder="Sub name"
                 />
               </div>
             ))}
@@ -1094,7 +1108,7 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
                     {order}
                   </div>
                   <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 text-sm">
-                    {player?.id || ''}
+                    {player?.jersey || ''}
                   </div>
                   <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm font-medium">
                     {player?.name || ''}
@@ -1127,7 +1141,7 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
               <div className="grid grid-cols-5 gap-x-4 gap-y-0.5 text-xs">
                 {[...roster.players, ...roster.subs].map((player) => (
                   <div key={player.id} className="flex gap-1">
-                    <span className="font-bold w-4">{player.id}</span>
+                    <span className="font-bold w-5">{player.jersey || ''}</span>
                     <span>{player.name}</span>
                   </div>
                 ))}
@@ -2107,13 +2121,6 @@ function App() {
         onSwap={handleSwap}
       />
 
-      <GameSummaryModal
-        isOpen={summaryModal}
-        onClose={() => setSummaryModal(false)}
-        gameData={gameData}
-        gameInfo={gameInfo}
-      />
-
       <SaveGameModal
         isOpen={saveModal}
         onClose={() => setSaveModal(false)}
@@ -2155,6 +2162,13 @@ function App() {
         gameData={gameData}
         gameInfo={gameInfo}
         roster={roster}
+      />
+
+      <GameSummaryModal
+        isOpen={summaryModal}
+        onClose={() => setSummaryModal(false)}
+        gameData={gameData}
+        gameInfo={gameInfo}
       />
     </>
   )
