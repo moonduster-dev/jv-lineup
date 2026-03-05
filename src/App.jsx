@@ -1102,8 +1102,7 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
               <div className="flex-1 p-1.5 border-r border-gray-600">STARTER</div>
               <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
               <div className="flex-1 p-1.5 border-r border-gray-600">SUBSTITUTE</div>
-              <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
-              <div className="w-10 p-1.5 text-center">INN</div>
+              <div className="w-12 p-1.5 text-center">POS</div>
             </div>
 
             {/* Batting Order Rows */}
@@ -1122,12 +1121,11 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
                   <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm font-medium">
                     {player?.name || ''}
                   </div>
-                  <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 text-sm font-medium">
-                    {position}
+                  <div className="w-12 p-1 flex items-center justify-start border-r border-gray-400 text-sm font-medium relative" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}>
+                    <span className="pl-0.5">{position}</span>
                   </div>
                   <div className="flex-1 p-1 border-r border-gray-400"></div>
-                  <div className="w-12 p-1 border-r border-gray-400"></div>
-                  <div className="w-10 p-1"></div>
+                  <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
                 </div>
               )
             })}
@@ -1139,10 +1137,9 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
               </div>
               <div className="w-10 p-1 border-r border-gray-400"></div>
               <div className="flex-1 p-1 border-r border-gray-400"></div>
-              <div className="w-12 p-1 border-r border-gray-400"></div>
+              <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
               <div className="flex-1 p-1 border-r border-gray-400"></div>
-              <div className="w-12 p-1 border-r border-gray-400"></div>
-              <div className="w-10 p-1"></div>
+              <div className="w-12 p-1" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
             </div>
 
             {/* 3 Blank Rows */}
@@ -1151,10 +1148,9 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
                 <div className="w-12 p-1 border-r border-gray-400"></div>
                 <div className="w-10 p-1 border-r border-gray-400"></div>
                 <div className="flex-1 p-1 border-r border-gray-400"></div>
-                <div className="w-12 p-1 border-r border-gray-400"></div>
+                <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
                 <div className="flex-1 p-1 border-r border-gray-400"></div>
-                <div className="w-12 p-1 border-r border-gray-400"></div>
-                <div className="w-10 p-1"></div>
+                <div className="w-12 p-1" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
               </div>
             ))}
 
@@ -1165,8 +1161,7 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
               <div className="flex-1 p-1.5 border-r border-gray-600">NAME</div>
               <div className="w-12 p-1.5 text-center border-r border-gray-600">POS</div>
               <div className="flex-1 p-1.5 border-r border-gray-600"></div>
-              <div className="w-12 p-1.5 text-center border-r border-gray-600"></div>
-              <div className="w-10 p-1.5 text-center"></div>
+              <div className="w-12 p-1.5 text-center">POS</div>
             </div>
 
             {/* Sub Rows */}
@@ -1183,10 +1178,9 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
                 <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm">
                   {sub?.name || ''}
                 </div>
-                <div className="w-12 p-1 border-r border-gray-400"></div>
+                <div className="w-12 p-1 border-r border-gray-400" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
                 <div className="flex-1 p-1 border-r border-gray-400"></div>
-                <div className="w-12 p-1 border-r border-gray-400"></div>
-                <div className="w-10 p-1"></div>
+                <div className="w-12 p-1" style={{ background: 'linear-gradient(to top right, transparent calc(50% - 1px), #9ca3af, transparent calc(50% + 1px))' }}></div>
               </div>
               )
             })}
