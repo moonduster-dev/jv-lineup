@@ -1025,6 +1025,7 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
   if (!isOpen) return null
 
   const battingOrder = gameData[1]?.battingOrder || []
+  const gameSubs = gameData[1]?.subs || []
   const fieldAssignments = gameData[1]?.fieldAssignments || {}
 
   // Build lookup map from current roster (to get updated names/jerseys)
@@ -1112,10 +1113,10 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
               const position = gamePlayer ? getPlayerPosition(gamePlayer.id) : ''
               return (
                 <div key={order} className="flex border-b border-gray-400 min-h-[36px]">
-                  <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xl" style={{ color: '#1e3a5f' }}>
+                  <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 text-sm text-gray-500">
                     {order}
                   </div>
-                  <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 text-sm">
+                  <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xl" style={{ color: '#1e3a5f' }}>
                     {player?.jersey || ''}
                   </div>
                   <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm font-medium">
@@ -1169,23 +1170,26 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
             </div>
 
             {/* Sub Rows */}
-            {roster.subs.map((sub, idx) => (
-              <div key={sub.id} className="flex border-b border-gray-400 min-h-[32px]">
+            {gameSubs.map((gameSub, idx) => {
+              const sub = getPlayerFromRoster(gameSub.id)
+              return (
+              <div key={gameSub.id} className="flex border-b border-gray-400 min-h-[32px]">
                 <div className="w-12 p-1 flex items-center justify-center border-r border-gray-400 text-sm text-gray-500">
                   {idx + 1}
                 </div>
-                <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 text-sm">
-                  {sub.jersey || ''}
+                <div className="w-10 p-1 flex items-center justify-center border-r border-gray-400 font-bold text-xl" style={{ color: '#1e3a5f' }}>
+                  {sub?.jersey || ''}
                 </div>
                 <div className="flex-1 p-1 flex items-center border-r border-gray-400 text-sm">
-                  {sub.name}
+                  {sub?.name || ''}
                 </div>
                 <div className="w-12 p-1 border-r border-gray-400"></div>
                 <div className="flex-1 p-1 border-r border-gray-400"></div>
                 <div className="w-12 p-1 border-r border-gray-400"></div>
                 <div className="w-10 p-1"></div>
               </div>
-            ))}
+              )
+            })}
 
             {/* Roster Section */}
             <div className="p-2 bg-gray-100 border-t border-gray-800">
