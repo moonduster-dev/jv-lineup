@@ -520,9 +520,10 @@ function GameSummaryModal({ isOpen, onClose, gameData, gameInfo }) {
   )
 }
 
-function SaveGameModal({ isOpen, onClose, onSave, initialOpponent, initialDate }) {
+function SaveGameModal({ isOpen, onClose, onSave, initialOpponent, initialDate, initialInnings }) {
   const [opponent, setOpponent] = useState(initialOpponent)
   const [date, setDate] = useState(initialDate)
+  const [innings, setInnings] = useState(initialInnings || 7)
 
   if (!isOpen) return null
 
@@ -552,6 +553,18 @@ function SaveGameModal({ isOpen, onClose, onSave, initialOpponent, initialDate }
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-800"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Innings Played</label>
+            <select
+              value={innings}
+              onChange={(e) => setInnings(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-800"
+            >
+              {[1,2,3,4,5,6,7].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="p-4 border-t border-gray-200 flex gap-2">
           <button
@@ -561,7 +574,7 @@ function SaveGameModal({ isOpen, onClose, onSave, initialOpponent, initialDate }
             Cancel
           </button>
           <button
-            onClick={() => onSave(opponent, date)}
+            onClick={() => onSave(opponent, date, innings)}
             disabled={!opponent || !date}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
@@ -576,6 +589,7 @@ function SaveGameModal({ isOpen, onClose, onSave, initialOpponent, initialDate }
 // Calculate metrics for a single game, including all roster players
 function calculateGameMetrics(game, roster) {
   const playerStats = {}
+  const gameInnings = game.innings || 7
 
   // Initialize all roster players with zero stats
   if (roster) {
@@ -584,9 +598,9 @@ function calculateGameMetrics(game, roster) {
     })
   }
 
-  INNINGS.forEach(inning => {
+  for (let inning = 1; inning <= gameInnings; inning++) {
     const inningData = game.gameData[inning]
-    if (!inningData) return
+    if (!inningData) continue
 
     inningData.battingOrder.forEach(player => {
       if (!playerStats[player.name]) {
@@ -611,13 +625,13 @@ function calculateGameMetrics(game, roster) {
         }
       }
     })
-  })
+  }
 
   return Object.entries(playerStats)
     .map(([name, stats]) => ({
       name,
       ...stats,
-      percentage: ((stats.total / 7) * 100).toFixed(1)
+      percentage: ((stats.total / gameInnings) * 100).toFixed(1)
     }))
     .sort((a, b) => b.total - a.total)
 }
@@ -638,10 +652,13 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
       })
     }
 
+    let maxPossibleInnings = 0
     savedGames.forEach(game => {
-      INNINGS.forEach(inning => {
+      const gameInnings = game.innings || 7
+      maxPossibleInnings += gameInnings
+      for (let inning = 1; inning <= gameInnings; inning++) {
         const inningData = game.gameData[inning]
-        if (!inningData) return
+        if (!inningData) continue
 
         inningData.battingOrder.forEach(player => {
           if (!playerStats[player.name]) {
@@ -666,11 +683,8 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
             }
           }
         })
-      })
+      }
     })
-
-    const totalGames = savedGames.length
-    const maxPossibleInnings = totalGames * 7
 
     return Object.entries(playerStats)
       .map(([name, stats]) => ({
@@ -684,7 +698,7 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
   const seasonStats = calculateSeasonMetrics()
   const selectedGame = savedGames.find(g => g.id === selectedGameId)
   const gameStats = selectedGame ? calculateGameMetrics(selectedGame, roster) :
-    (currentGameInfo.opponent ? calculateGameMetrics({ gameData: currentGameData }, roster) : [])
+    (currentGameInfo.opponent ? calculateGameMetrics({ gameData: currentGameData, innings: currentGameInfo.innings || 7 }, roster) : [])
 
   const displayStats = viewMode === 'season' ? seasonStats : gameStats
   const totalGames = savedGames.length
@@ -1467,7 +1481,8 @@ function App() {
   const [savedGames, setSavedGames] = useState([])
   const [gameInfo, setGameInfo] = useState({
     opponent: '',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    innings: 7
   })
   const [currentGameId, setCurrentGameId] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(loadAuthState)
@@ -1500,7 +1515,7 @@ function App() {
         const data = docSnap.data()
         console.log('Loading current game from Firestore')
         setGameData(data.gameData)
-        setGameInfo({ opponent: data.opponent || '', date: data.date || new Date().toISOString().split('T')[0] })
+        setGameInfo({ opponent: data.opponent || '', date: data.date || new Date().toISOString().split('T')[0], innings: data.innings || 7 })
         setCurrentGameId(data.id || null)
       }
       setLoading(false)
@@ -1553,6 +1568,7 @@ function App() {
         gameData: JSON.parse(JSON.stringify(newGameData)),
         opponent: newGameInfo.opponent,
         date: newGameInfo.date,
+        innings: newGameInfo.innings || 7,
         id: newGameId,
         updatedAt: new Date().toISOString()
       })
@@ -1801,7 +1817,7 @@ function App() {
     setCurrentInning(newInning)
   }
 
-  const handleSaveGame = async (opponent, date) => {
+  const handleSaveGame = async (opponent, date, innings) => {
     if (!canEdit) return
 
     setSyncStatus('saving')
@@ -1809,16 +1825,17 @@ function App() {
     const game = {
       opponent,
       date,
+      innings: innings || 7,
       gameData: JSON.parse(JSON.stringify(gameData)),
       updatedAt: new Date().toISOString()
     }
 
     try {
       await setDoc(doc(db, 'games', gameId), game)
-      setGameInfo({ opponent, date })
+      setGameInfo({ opponent, date, innings: innings || 7 })
       setCurrentGameId(gameId)
       // Also update current game with new info
-      syncCurrentGame(gameData, { opponent, date }, gameId)
+      syncCurrentGame(gameData, { opponent, date, innings: innings || 7 }, gameId)
       setSaveModal(false)
       setSyncStatus('synced')
     } catch (error) {
@@ -1829,12 +1846,12 @@ function App() {
 
   const handleLoadGame = (game) => {
     setGameData(game.gameData)
-    setGameInfo({ opponent: game.opponent, date: game.date })
+    setGameInfo({ opponent: game.opponent, date: game.date, innings: game.innings || 7 })
     setCurrentGameId(game.id)
     setCurrentInning(1)
     setSavedGamesModal(false)
     // Sync to all devices
-    syncCurrentGame(game.gameData, { opponent: game.opponent, date: game.date }, game.id)
+    syncCurrentGame(game.gameData, { opponent: game.opponent, date: game.date, innings: game.innings || 7 }, game.id)
   }
 
   const handleDeleteGame = async (gameId) => {
@@ -1853,7 +1870,7 @@ function App() {
   const handleNewGame = () => {
     if (!canEdit) return
     const newGameData = createInitialGameData(roster)
-    const newGameInfo = { opponent: '', date: new Date().toISOString().split('T')[0] }
+    const newGameInfo = { opponent: '', date: new Date().toISOString().split('T')[0], innings: 7 }
     setGameData(newGameData)
     setGameInfo(newGameInfo)
     setCurrentGameId(null)
@@ -2187,6 +2204,7 @@ function App() {
         onSave={handleSaveGame}
         initialOpponent={gameInfo.opponent}
         initialDate={gameInfo.date}
+        initialInnings={gameInfo.innings || 7}
       />
 
       <MetricsModal
