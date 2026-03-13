@@ -992,6 +992,7 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
           {INNINGS.map(inning => {
             const { battingChanges, fieldChanges } = getInningChanges(gameData, inning, allPlayersMap)
             const hasChanges = battingChanges.length > 0 || fieldChanges.length > 0
+            const inningData = gameData[inning]
 
             return (
               <div key={inning} className="border border-gray-200 rounded-lg overflow-hidden print:rounded print:border-gray-400 print:break-inside-avoid">
@@ -999,30 +1000,44 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
                   Inning {inning}
                 </div>
                 <div className="p-2 print:p-1.5 text-sm print:text-xs">
-                  {inning === 1 ? (
-                    <p className="text-gray-500 italic">Starting lineup</p>
-                  ) : !gameData[inning] ? (
+                  {!inningData ? (
                     <p className="text-gray-400 italic">Not yet played</p>
-                  ) : !hasChanges ? (
-                    <p className="text-gray-500 italic">No changes</p>
                   ) : (
-                    <div className="space-y-1">
-                      {battingChanges.map((change, idx) => (
-                        <div key={`b${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-amber-50 rounded text-xs">
-                          <span className="font-bold text-amber-700">#{change.slot}</span>
-                          <span className="text-green-700 font-medium">{change.playerIn.name}</span>
-                          <span className="text-gray-400">←</span>
-                          <span className="text-red-600 line-through">{change.playerOut.name}</span>
+                    <div className="space-y-1.5">
+                      {/* Batting order */}
+                      <div className="space-y-0.5">
+                        {inningData.battingOrder.map((player, idx) => {
+                          const pos = Object.entries(inningData.fieldAssignments).find(([, pid]) => pid === player.id)?.[0]
+                          return (
+                            <div key={player.id} className="flex items-center gap-1 text-xs">
+                              <span className="text-gray-400 w-4 text-right">{idx + 1}.</span>
+                              <span className="font-medium text-gray-800">{player.name}</span>
+                              {pos && <span className="text-gray-500">({pos})</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {/* Sub changes */}
+                      {(hasChanges && inning > 1) && (
+                        <div className="space-y-0.5 pt-1 border-t border-gray-100">
+                          {battingChanges.map((change, idx) => (
+                            <div key={`b${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-amber-50 rounded text-xs">
+                              <span className="font-bold text-amber-700">#{change.slot}</span>
+                              <span className="text-green-700 font-medium">{change.playerIn.name}</span>
+                              <span className="text-gray-400">←</span>
+                              <span className="text-red-600 line-through">{change.playerOut.name}</span>
+                            </div>
+                          ))}
+                          {fieldChanges.map((change, idx) => (
+                            <div key={`f${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
+                              <span className="font-bold text-blue-700 w-6">{change.position}</span>
+                              <span className="text-green-700 font-medium">{change.playerIn?.name || '-'}</span>
+                              <span className="text-gray-400">←</span>
+                              <span className="text-red-600 line-through">{change.playerOut?.name || '-'}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                      {fieldChanges.map((change, idx) => (
-                        <div key={`f${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
-                          <span className="font-bold text-blue-700 w-6">{change.position}</span>
-                          <span className="text-green-700 font-medium">{change.playerIn?.name || '-'}</span>
-                          <span className="text-gray-400">←</span>
-                          <span className="text-red-600 line-through">{change.playerOut?.name || '-'}</span>
-                        </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
