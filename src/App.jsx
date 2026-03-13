@@ -1639,8 +1639,9 @@ function App() {
       return
     }
 
-    // Handle batting order reordering (within batting order)
+    // Handle batting order reordering (within batting order) - only allowed in inning 1
     if (sourceId === 'batting-order' && destId === 'batting-order') {
+      if (currentInning > 1) return // Batting order is fixed after inning 1 (NFHS rule)
       const player1 = currentData.battingOrder[source.index]
       const player2 = currentData.battingOrder[destination.index]
       handleSwap(player1, player2, 'reorder')
@@ -1711,9 +1712,6 @@ function App() {
           const index2 = newBattingOrder.findIndex(p => p.id === player2.id)
 
           if (index1 !== -1 && index2 !== -1) {
-            // Update originalSlots so re-entry rules follow the new positions
-            newOriginalSlots[player1.id] = index2 + 1
-            newOriginalSlots[player2.id] = index1 + 1
             const temp = newBattingOrder[index1]
             newBattingOrder[index1] = newBattingOrder[index2]
             newBattingOrder[index2] = temp
@@ -2071,7 +2069,7 @@ function App() {
           <div className="mt-6">
             <h2 className="text-lg font-bold mb-3" style={{ color: '#1e3a5f' }}>
               Batting Order
-              {canEdit && <span className="text-sm font-normal text-gray-500 ml-2">Drag to reorder or swap</span>}
+              {canEdit && <span className="text-sm font-normal text-gray-500 ml-2">{currentInning === 1 ? 'Drag to reorder or swap' : 'Drag to swap (order locked)'}</span>}
             </h2>
             <Droppable droppableId="batting-order" type="PLAYER">
               {(provided, snapshot) => (
