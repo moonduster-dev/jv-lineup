@@ -42,11 +42,11 @@ const saveAuthState = (isAuthenticated) => {
   localStorage.setItem(AUTH_KEY, isAuthenticated ? 'true' : 'false')
 }
 
-// Re-entry tracking:
-// - starters: Set of player IDs who started the game (can re-enter once to their original slot)
-// - originalSlots: Maps player ID to their original batting slot (1-9)
-// - reentryCount: Maps player ID to number of times they've re-entered (starters max 1)
-// - subsRemovedFromBatting: Set of sub IDs who were in batting order and got subbed out (cannot re-enter)
+// Re-entry tracking (NFHS rule: any player may re-enter once, must return to same batting slot):
+// - starters: Set of player IDs who started the game
+// - originalSlots: Maps player ID to their first batting slot (starters set at game start, subs set when first entering)
+// - reentryCount: Maps player ID to number of times they've re-entered (max 1 for anyone)
+// - subsRemovedFromBatting: Set of sub IDs who were in batting order and got subbed out (eligible for one re-entry)
 const createInningData = (battingOrder, subs, fieldAssignments, originalSlots = null, starters = null, reentryCount = null, subsRemovedFromBatting = null) => ({
   battingOrder: battingOrder.map(p => ({ ...p })),
   subs: subs.map(p => ({ ...p })),
@@ -276,21 +276,18 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
     const timesReentered = reentryCountMap[playerId] || 0
     const wasSubRemovedFromBatting = subsRemoved.includes(playerId)
 
-    if (isStarter) {
-      // Starters can re-enter once, only to their original slot
-      if (timesReentered >= 1) return { canSwap: false, reason: 'Already re-entered once' }
-      if (playerOriginalSlot && playerOriginalSlot !== slot) return { canSwap: false, reason: `Must enter slot #${playerOriginalSlot}` }
+    // NFHS rule: any player (starter or sub) may re-enter once, must return to same batting slot
+    if (!playerOriginalSlot) {
+      // Never been in the batting order - can enter any slot
       return { canSwap: true, reason: null }
-    } else {
-      // Non-starters (subs)
-      if (wasSubRemovedFromBatting) {
-        return { canSwap: false, reason: 'Cannot re-enter (sub rule)' }
-      }
-      // Sub entering for first time - can enter any slot
-      if (!playerOriginalSlot) return { canSwap: true, reason: null }
-      // Sub was in batting order before - cannot re-enter
-      return { canSwap: false, reason: 'Cannot re-enter (sub rule)' }
     }
+    if (timesReentered >= 1) {
+      return { canSwap: false, reason: 'Already re-entered once' }
+    }
+    if (playerOriginalSlot !== slot) {
+      return { canSwap: false, reason: `Must enter slot #${playerOriginalSlot}` }
+    }
+    return { canSwap: true, reason: null }
   }
 
   const getValidSwapOptions = () => {
@@ -324,14 +321,13 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
     if (isInBattingOrder) {
       return `Currently batting #${currentIndex + 1}`
     }
-    if (isStarter) {
-      if (timesReentered >= 1) return 'Starter - already used re-entry'
-      return `Starter - can re-enter slot #${originalSlots[currentPlayer.id]}`
+    const playerOriginalSlot = originalSlots[currentPlayer.id]
+    const label = isStarter ? 'Starter' : 'Sub'
+    if (playerOriginalSlot) {
+      if (timesReentered >= 1) return `${label} - already used re-entry`
+      return `${label} - can re-enter slot #${playerOriginalSlot}`
     }
-    if (wasSubRemovedFromBatting) {
-      return 'Sub - cannot re-enter batting order'
-    }
-    return 'Sub - available to enter'
+    return `${label} - available to enter`
   }
 
   return (
@@ -1731,16 +1727,11 @@ function App() {
             const fromSubs = newSubs[subIndex2]
             const slot = battingIndex1 + 1
 
-            // The person entering (fromSubs) - check if they're a starter re-entering
-            const enteringIsStarter = newStarters.includes(fromSubs.id)
-            if (enteringIsStarter) {
-              // Starter re-entering - increment their re-entry count
-              newReentryCount[fromSubs.id] = (newReentryCount[fromSubs.id] || 0) + 1
+            // Track entry slot on first entry; increment re-entry count on subsequent entries
+            if (!newOriginalSlots[fromSubs.id]) {
+              newOriginalSlots[fromSubs.id] = slot
             } else {
-              // Non-starter entering for first time - track their entry slot
-              if (!newOriginalSlots[fromSubs.id]) {
-                newOriginalSlots[fromSubs.id] = slot
-              }
+              newReentryCount[fromSubs.id] = (newReentryCount[fromSubs.id] || 0) + 1
             }
 
             // The person leaving (fromBatting) - if NOT a starter, mark them as removed
@@ -1759,16 +1750,11 @@ function App() {
             const fromBatting = newBattingOrder[battingIndex2]
             const slot = battingIndex2 + 1
 
-            // The person entering (fromSubs) - check if they're a starter re-entering
-            const enteringIsStarter = newStarters.includes(fromSubs.id)
-            if (enteringIsStarter) {
-              // Starter re-entering - increment their re-entry count
-              newReentryCount[fromSubs.id] = (newReentryCount[fromSubs.id] || 0) + 1
+            // Track entry slot on first entry; increment re-entry count on subsequent entries
+            if (!newOriginalSlots[fromSubs.id]) {
+              newOriginalSlots[fromSubs.id] = slot
             } else {
-              // Non-starter entering for first time - track their entry slot
-              if (!newOriginalSlots[fromSubs.id]) {
-                newOriginalSlots[fromSubs.id] = slot
-              }
+              newReentryCount[fromSubs.id] = (newReentryCount[fromSubs.id] || 0) + 1
             }
 
             // The person leaving (fromBatting) - if NOT a starter, mark them as removed
