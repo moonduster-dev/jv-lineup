@@ -1711,6 +1711,9 @@ function App() {
           const index2 = newBattingOrder.findIndex(p => p.id === player2.id)
 
           if (index1 !== -1 && index2 !== -1) {
+            // Update originalSlots so re-entry rules follow the new positions
+            newOriginalSlots[player1.id] = index2 + 1
+            newOriginalSlots[player2.id] = index1 + 1
             const temp = newBattingOrder[index1]
             newBattingOrder[index1] = newBattingOrder[index2]
             newBattingOrder[index2] = temp
