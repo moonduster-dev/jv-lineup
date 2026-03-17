@@ -1079,8 +1079,8 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
     <>
       <style>{`
         @page {
-          size: 5in 8in;
-          margin: 0.15in;
+          size: letter;
+          margin: 2in 2.25in;
         }
         @media print {
           * {
