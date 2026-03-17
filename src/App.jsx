@@ -270,21 +270,24 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
   const subsRemoved = subsRemovedFromBatting || []
 
   // Check if a player can enter a specific batting slot
+  // NFHS Rule 3-3-5: any player may re-enter once, must return to same batting order position.
+  // A player who has NEVER been in the batting order (not a starter, never subbed in) can enter any slot freely.
   const canPlayerEnterSlot = (playerId, slot) => {
     const isStarter = startersList.includes(playerId)
+    const wasInBattingOrder = subsRemoved.includes(playerId) // sub who entered and was later removed
     const playerOriginalSlot = originalSlots[playerId]
     const timesReentered = reentryCountMap[playerId] || 0
-    const wasSubRemovedFromBatting = subsRemoved.includes(playerId)
 
-    // NFHS rule: any player (starter or sub) may re-enter once, must return to same batting slot
-    if (!playerOriginalSlot) {
-      // Never been in the batting order - can enter any slot
+    // Fresh sub: not a starter, never entered the batting order — no restrictions
+    if (!isStarter && !wasInBattingOrder) {
       return { canSwap: true, reason: null }
     }
+
+    // Has been in batting order (as starter or sub who entered) — re-entry rules apply
     if (timesReentered >= 1) {
       return { canSwap: false, reason: 'Already re-entered once' }
     }
-    if (playerOriginalSlot !== slot) {
+    if (playerOriginalSlot && playerOriginalSlot !== slot) {
       return { canSwap: false, reason: `Must enter slot #${playerOriginalSlot}` }
     }
     return { canSwap: true, reason: null }
@@ -321,13 +324,15 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
     if (isInBattingOrder) {
       return `Currently batting #${currentIndex + 1}`
     }
+    const wasInBattingOrder = subsRemoved.includes(currentPlayer.id)
     const playerOriginalSlot = originalSlots[currentPlayer.id]
-    const label = isStarter ? 'Starter' : 'Sub'
-    if (playerOriginalSlot) {
-      if (timesReentered >= 1) return `${label} - already used re-entry`
-      return `${label} - can re-enter slot #${playerOriginalSlot}`
+    // Fresh sub — never been in the batting order
+    if (!isStarter && !wasInBattingOrder) {
+      return 'Sub - available to enter any slot'
     }
-    return `${label} - available to enter`
+    const label = isStarter ? 'Starter' : 'Sub'
+    if (timesReentered >= 1) return `${label} - already used re-entry`
+    return `${label} - can re-enter slot #${playerOriginalSlot}`
   }
 
   return (
