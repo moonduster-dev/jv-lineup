@@ -1088,10 +1088,11 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
             color-adjust: exact !important;
           }
           body { margin: 0; padding: 0; }
+          .umpire-card { width: 4.5in !important; margin: 0 auto !important; }
         }
       `}</style>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:static print:bg-white print:p-0 print:block">
-        <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl print:max-w-none print:shadow-none print:rounded-none print:w-full">
+        <div className="umpire-card bg-white rounded-lg shadow-xl w-full max-w-2xl print:max-w-none print:shadow-none print:rounded-none print:w-full">
           {/* Print Header */}
           <div className="print:hidden p-3 border-b flex justify-between items-center">
           <h3 className="font-semibold text-gray-900">Umpire Lineup Card</h3>
