@@ -1078,12 +1078,17 @@ function UmpireLineupCard({ isOpen, onClose, gameData, gameInfo, roster }) {
   return (
     <>
       <style>{`
+        @page {
+          size: 5in 8in;
+          margin: 0.15in;
+        }
         @media print {
-          @page {
-            size: 5in 8in;
-            margin: 0.2in;
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
-          body { margin: 0; }
+          body { margin: 0; padding: 0; }
         }
       `}</style>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:static print:bg-white print:p-0 print:block">
