@@ -1018,6 +1018,21 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
                           )
                         })}
                       </div>
+                      {/* Fielding positions */}
+                      <div className="pt-1 border-t border-gray-200">
+                        <div className="grid grid-cols-3 gap-x-2 gap-y-0.5">
+                          {FIELD_POSITIONS.map(pos => {
+                            const playerId = inningData.fieldAssignments[pos]
+                            const player = playerId != null ? allPlayersMap[playerId] : null
+                            return (
+                              <div key={pos} className="flex items-center gap-1 text-xs">
+                                <span className="font-bold text-blue-700 w-6 shrink-0">{pos}</span>
+                                <span className="text-gray-800 truncate">{player?.name || <span className="text-gray-300">—</span>}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
                       {/* Sub changes */}
                       {(hasChanges && inning > 1) && (
                         <div className="space-y-0.5 pt-1 border-t border-gray-100">
