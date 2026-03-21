@@ -1012,6 +1012,7 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
                           return (
                             <div key={player.id} className="flex items-center gap-1 text-xs">
                               <span className="text-gray-400 w-4 text-right">{idx + 1}.</span>
+                              {player.jersey && <span className="text-gray-400 w-5 text-right font-medium">#{player.jersey}</span>}
                               <span className="font-medium text-gray-800">{player.name}</span>
                               {pos && <span className="text-gray-500">({pos})</span>}
                             </div>
@@ -1039,17 +1040,17 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
                           {battingChanges.map((change, idx) => (
                             <div key={`b${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-amber-50 rounded text-xs">
                               <span className="font-bold text-amber-700">#{change.slot}</span>
-                              <span className="text-green-700 font-medium">{change.playerIn.name}</span>
+                              <span className="text-green-700 font-medium">{change.playerIn.name}{change.playerIn.jersey ? ` #${change.playerIn.jersey}` : ''}</span>
                               <span className="text-gray-400">←</span>
-                              <span className="text-red-600 line-through">{change.playerOut.name}</span>
+                              <span className="text-red-600 line-through">{change.playerOut.name}{change.playerOut.jersey ? ` #${change.playerOut.jersey}` : ''}</span>
                             </div>
                           ))}
                           {fieldChanges.map((change, idx) => (
                             <div key={`f${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
                               <span className="font-bold text-blue-700 w-6">{change.position}</span>
-                              <span className="text-green-700 font-medium">{change.playerIn?.name || '-'}</span>
+                              <span className="text-green-700 font-medium">{change.playerIn ? `${change.playerIn.name}${change.playerIn.jersey ? ` #${change.playerIn.jersey}` : ''}` : '-'}</span>
                               <span className="text-gray-400">←</span>
-                              <span className="text-red-600 line-through">{change.playerOut?.name || '-'}</span>
+                              <span className="text-red-600 line-through">{change.playerOut ? `${change.playerOut.name}${change.playerOut.jersey ? ` #${change.playerOut.jersey}` : ''}` : '-'}</span>
                             </div>
                           ))}
                         </div>
