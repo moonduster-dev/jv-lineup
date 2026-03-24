@@ -402,8 +402,15 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
   )
 }
 
-function GameSummaryModal({ isOpen, onClose, gameData, gameInfo }) {
+function GameSummaryModal({ isOpen, onClose, gameData, gameInfo, roster }) {
   if (!isOpen) return null
+
+  const allRosterPlayers = roster ? [...roster.players, ...roster.subs] : []
+  const getJersey = (player) => {
+    if (player.jersey) return player.jersey
+    const found = allRosterPlayers.find(p => p.id === player.id)
+    return found ? found.jersey : null
+  }
 
   const getPlayerPosition = (inningData, playerId) => {
     if (!inningData) return null
@@ -502,7 +509,7 @@ function GameSummaryModal({ isOpen, onClose, gameData, gameInfo }) {
                       <td key={inning} className="border border-gray-300 px-2 py-2">
                         <div className="text-center">
                           <div className="font-medium">
-                            {player.jersey && <span className="text-gray-500 text-xs mr-1">#{player.jersey}</span>}
+                            {getJersey(player) && <span className="text-gray-500 text-xs mr-1">#{getJersey(player)}</span>}
                             {player.name}
                           </div>
                           <span className={`inline-block px-1 py-0.5 rounded text-xs font-bold mt-1
@@ -2278,6 +2285,7 @@ function App() {
         onClose={() => setSummaryModal(false)}
         gameData={gameData}
         gameInfo={gameInfo}
+        roster={roster}
       />
     </>
   )
