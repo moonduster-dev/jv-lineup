@@ -501,7 +501,10 @@ function GameSummaryModal({ isOpen, onClose, gameData, gameInfo }) {
                     return (
                       <td key={inning} className="border border-gray-300 px-2 py-2">
                         <div className="text-center">
-                          <div className="font-medium">{player.name}</div>
+                          <div className="font-medium">
+                            {player.jersey && <span className="text-gray-500 text-xs mr-1">#{player.jersey}</span>}
+                            {player.name}
+                          </div>
                           <span className={`inline-block px-1 py-0.5 rounded text-xs font-bold mt-1
                             ${pos ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}
                           `}>
