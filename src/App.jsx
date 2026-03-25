@@ -1731,6 +1731,44 @@ function App() {
     setGameData(prev => {
       const newGameData = { ...prev }
 
+      // Enforce re-entry rules before applying any substitute swap
+      if (swapType === 'substitute') {
+        const currentData = prev[currentInning]
+        if (currentData) {
+          const starters = currentData.starters || []
+          const originalSlots = currentData.originalSlots || {}
+          const reentryCount = currentData.reentryCount || {}
+          const subsRemovedFromBatting = currentData.subsRemovedFromBatting || []
+          const battingOrder = currentData.battingOrder
+          const subs = currentData.subs
+          const battingIndex1 = battingOrder.findIndex(p => p.id === player1.id)
+          const subIndex1 = subs.findIndex(p => p.id === player1.id)
+          const battingIndex2 = battingOrder.findIndex(p => p.id === player2.id)
+          const subIndex2 = subs.findIndex(p => p.id === player2.id)
+
+          let incomingId = null
+          let targetSlot = null
+          if (battingIndex1 !== -1 && subIndex2 !== -1) {
+            incomingId = player2.id
+            targetSlot = battingIndex1 + 1
+          } else if (subIndex1 !== -1 && battingIndex2 !== -1) {
+            incomingId = player1.id
+            targetSlot = battingIndex2 + 1
+          }
+
+          if (incomingId !== null) {
+            const isStarter = starters.includes(incomingId)
+            const wasInBattingOrder = subsRemovedFromBatting.includes(incomingId)
+            const playerOriginalSlot = originalSlots[incomingId]
+            const timesReentered = reentryCount[incomingId] || 0
+            if (isStarter || wasInBattingOrder) {
+              if (timesReentered >= 1) return prev
+              if (playerOriginalSlot && playerOriginalSlot !== targetSlot) return prev
+            }
+          }
+        }
+      }
+
       for (let inning = currentInning; inning <= 7; inning++) {
         if (!newGameData[inning]) continue
 
