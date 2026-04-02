@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { db } from './firebase'
+import { db, auth } from './firebase'
 import { doc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore'
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
 const TEAM_NAME = 'Our Lady of Good Counsel 2026 JV Softball'
 const FIELD_POSITIONS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF']
 const INNINGS = [1, 2, 3, 4, 5, 6, 7]
-const AUTH_KEY = 'jv-lineup-auth'
-const EDIT_PASSWORD = 'bob2026'
 
 const createDefaultRoster = () => ({
   players: [
@@ -30,17 +29,6 @@ const createDefaultRoster = () => ({
   ]
 })
 
-const loadAuthState = () => {
-  try {
-    return localStorage.getItem(AUTH_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-const saveAuthState = (isAuthenticated) => {
-  localStorage.setItem(AUTH_KEY, isAuthenticated ? 'true' : 'false')
-}
 
 // Re-entry tracking (NFHS rule: any player may re-enter once, must return to same batting slot):
 // - starters: Set of player IDs who started the game
@@ -82,22 +70,28 @@ const createInitialGameData = (roster) => {
   }
 }
 
-// Password Modal Component
+// Login Modal Component
 function PasswordModal({ isOpen, onClose, onSuccess }) {
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   if (!isOpen) return null
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (password === EDIT_PASSWORD) {
-      saveAuthState(true)
+    setLoading(true)
+    setError('')
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
       onSuccess()
+      setEmail('')
       setPassword('')
-      setError('')
-    } else {
-      setError('Incorrect password')
+    } catch {
+      setError('Incorrect email or password')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -105,9 +99,20 @@ function PasswordModal({ isOpen, onClose, onSuccess }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
         <div className="p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Enter Password to Edit</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Login to Edit</h3>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError('') }}
+              placeholder="Enter email"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-800"
+              autoFocus
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
@@ -116,7 +121,6 @@ function PasswordModal({ isOpen, onClose, onSuccess }) {
               onChange={(e) => { setPassword(e.target.value); setError('') }}
               placeholder="Enter password"
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-800"
-              autoFocus
             />
             {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
           </div>
@@ -130,9 +134,10 @@ function PasswordModal({ isOpen, onClose, onSuccess }) {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
             >
-              Login
+              {loading ? 'Logging in...' : 'Login'}
             </button>
           </div>
         </form>
@@ -1532,11 +1537,19 @@ function App() {
     innings: 7
   })
   const [currentGameId, setCurrentGameId] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(loadAuthState)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncStatus, setSyncStatus] = useState('loading')
 
   const canEdit = isAuthenticated
+
+  // Listen for Firebase Auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user)
+    })
+    return () => unsubscribe()
+  }, [])
 
   // Load data from Firestore on mount with real-time listeners
   useEffect(() => {
@@ -1975,8 +1988,7 @@ function App() {
   }
 
   const handleLogout = () => {
-    setIsAuthenticated(false)
-    saveAuthState(false)
+    signOut(auth)
   }
 
   if (loading) {

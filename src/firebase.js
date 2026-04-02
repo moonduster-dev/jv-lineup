@@ -1,8 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
+import { getAuth } from 'firebase/auth'
 
-// TODO: Replace with your Firebase config from Firebase Console
-// Go to: Firebase Console → Project Settings → Your apps → Web app → Config
 const firebaseConfig = {
   apiKey: "AIzaSyDfQvdVb9BPMRQ1AlJmGL-xmNS2SB15Oq0",
   authDomain: "jv-lineup.firebaseapp.com",
@@ -15,3 +14,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 export const db = getFirestore(app)
+export const auth = getAuth(app)
