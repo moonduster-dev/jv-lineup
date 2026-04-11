@@ -1774,7 +1774,7 @@ function App() {
             targetSlot = battingIndex2 + 1
           }
 
-          if (incomingId !== null) {
+          if (incomingId !== null && currentInning > 1) {
             const isStarter = starters.includes(incomingId)
             const wasInBattingOrder = subsRemovedFromBatting.includes(incomingId)
             const playerOriginalSlot = originalSlots[incomingId]
