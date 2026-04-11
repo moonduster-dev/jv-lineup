@@ -1518,7 +1518,7 @@ function App() {
     innings: 7
   })
   const [currentGameId, setCurrentGameId] = useState(null)
-  const [reentryViolations, setReentryViolations] = useState([])
+  const [reentryViolations, setReentryViolations] = useState({ messages: [], targetInning: null })
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncStatus, setSyncStatus] = useState('loading')
@@ -1797,25 +1797,27 @@ function App() {
       const slot = index + 1
       const wasInBatting = prevStarters.has(p.id) || subsRemovedFromBatting.includes(p.id)
       if (!prevStarters.has(p.id) && wasInBatting) {
-        // Re-entering player — only block if they've already used their one re-entry
+        // Re-entering player — check count and slot
         if ((reentryCount[p.id] || 0) >= 1) {
           violations.push(`${p.name || 'Player'} has already used their re-entry`)
+        } else if (originalSlots[p.id] && originalSlots[p.id] !== slot) {
+          violations.push(`${p.name || 'Player'} must return to batting slot ${originalSlots[p.id]} (currently in slot ${slot})`)
         }
       }
     })
     return violations
   }
 
-  const handleInningChange = (newInning) => {
+  const handleInningChange = (newInning, force = false) => {
     // Validate re-entry rules before advancing forward
-    if (newInning > currentInning && gameData[currentInning]) {
+    if (!force && newInning > currentInning && gameData[currentInning]) {
       const violations = validateReentry(gameData[currentInning])
       if (violations.length > 0) {
-        setReentryViolations(violations)
+        setReentryViolations({ messages: violations, targetInning: newInning })
         return
       }
     }
-    setReentryViolations([])
+    setReentryViolations({ messages: [], targetInning: null })
 
     setGameData(prev => {
       let sourceInning = newInning - 1
@@ -1830,9 +1832,10 @@ function App() {
       const newOriginalSlots = { ...(source.originalSlots || {}) }
       const newStarters = source.battingOrder.map(p => p.id)
 
-      // Set originalSlots for players entering for the first time this inning
+      // Always update originalSlots for players in the batting order —
+      // this reflects the slot they most recently occupied (the slot they came out of)
       source.battingOrder.forEach((p, index) => {
-        if (!newOriginalSlots[p.id]) newOriginalSlots[p.id] = index + 1
+        newOriginalSlots[p.id] = index + 1
       })
 
       // Players who entered this inning → increment reentryCount
@@ -2098,16 +2101,22 @@ function App() {
           setCurrentInning={handleInningChange}
         />
 
-        {reentryViolations.length > 0 && (
+        {reentryViolations.messages.length > 0 && (
           <div className="mb-3 p-3 bg-red-50 border border-red-300 rounded-lg">
             <div className="flex items-start justify-between gap-2">
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-semibold text-red-700 mb-1">Re-entry violation — fix before advancing:</p>
-                <ul className="text-sm text-red-600 list-disc list-inside space-y-0.5">
-                  {reentryViolations.map((v, i) => <li key={i}>{v}</li>)}
+                <ul className="text-sm text-red-600 list-disc list-inside space-y-0.5 mb-2">
+                  {reentryViolations.messages.map((v, i) => <li key={i}>{v}</li>)}
                 </ul>
+                <button
+                  onClick={() => handleInningChange(reentryViolations.targetInning, true)}
+                  className="text-xs px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200"
+                >
+                  Proceed Anyway
+                </button>
               </div>
-              <button onClick={() => setReentryViolations([])} className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0">✕</button>
+              <button onClick={() => setReentryViolations({ messages: [], targetInning: null })} className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0">✕</button>
             </div>
           </div>
         )}
