@@ -1797,11 +1797,9 @@ function App() {
       const slot = index + 1
       const wasInBatting = prevStarters.has(p.id) || subsRemovedFromBatting.includes(p.id)
       if (!prevStarters.has(p.id) && wasInBatting) {
-        // Re-entering player — check rules
+        // Re-entering player — only block if they've already used their one re-entry
         if ((reentryCount[p.id] || 0) >= 1) {
           violations.push(`${p.name || 'Player'} has already used their re-entry`)
-        } else if (originalSlots[p.id] && originalSlots[p.id] !== slot) {
-          violations.push(`${p.name || 'Player'} must return to batting slot ${originalSlots[p.id]} (currently in slot ${slot})`)
         }
       }
     })
