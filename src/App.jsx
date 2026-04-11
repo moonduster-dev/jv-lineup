@@ -1894,16 +1894,34 @@ function App() {
 
         if (sourceInning > 0 && prev[sourceInning]) {
           const source = prev[sourceInning]
+
+          // When advancing from inning 1 to inning 2, lock in the final lineup
+          // as the official starting point — reset all re-entry tracking
+          let originalSlots = source.originalSlots
+          let starters = source.starters
+          let reentryCount = source.reentryCount
+          let subsRemovedFromBatting = source.subsRemovedFromBatting
+          if (sourceInning === 1 && newInning === 2) {
+            originalSlots = {}
+            starters = []
+            source.battingOrder.forEach((p, index) => {
+              originalSlots[p.id] = index + 1
+              starters.push(p.id)
+            })
+            reentryCount = {}
+            subsRemovedFromBatting = []
+          }
+
           const newGameData = {
             ...prev,
             [newInning]: createInningData(
               source.battingOrder,
               source.subs,
               source.fieldAssignments,
-              source.originalSlots,
-              source.starters,
-              source.reentryCount,
-              source.subsRemovedFromBatting
+              originalSlots,
+              starters,
+              reentryCount,
+              subsRemovedFromBatting
             )
           }
           syncCurrentGame(newGameData, gameInfo, currentGameId)
