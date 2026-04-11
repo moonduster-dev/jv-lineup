@@ -265,7 +265,7 @@ function InningTabs({ currentInning, setCurrentInning }) {
   )
 }
 
-function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, originalSlots, starters, reentryCount, subsRemovedFromBatting, onSwap }) {
+function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, originalSlots, starters, reentryCount, subsRemovedFromBatting, onSwap, currentInning }) {
   if (!isOpen || !currentPlayer) return null
 
   const currentIndex = battingOrder.findIndex(p => p.id === currentPlayer.id)
@@ -276,8 +276,13 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
 
   // Check if a player can enter a specific batting slot
   // NFHS Rule 3-3-5: any player may re-enter once, must return to same batting order position.
-  // A player who has NEVER been in the batting order (not a starter, never subbed in) can enter any slot freely.
+  // Re-entry rules do not apply in the 1st inning — all swaps are free.
   const canPlayerEnterSlot = (playerId, slot) => {
+    // No restrictions in inning 1
+    if (currentInning === 1) {
+      return { canSwap: true, reason: null }
+    }
+
     const isStarter = startersList.includes(playerId)
     const wasInBattingOrder = subsRemoved.includes(playerId) // sub who entered and was later removed
     const playerOriginalSlot = originalSlots[playerId]
@@ -2288,6 +2293,7 @@ function App() {
         reentryCount={currentData.reentryCount || {}}
         subsRemovedFromBatting={currentData.subsRemovedFromBatting || []}
         onSwap={handleSwap}
+        currentInning={currentInning}
       />
 
       <SaveGameModal
