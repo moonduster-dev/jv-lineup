@@ -274,32 +274,8 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
   const reentryCountMap = reentryCount || {}
   const subsRemoved = subsRemovedFromBatting || []
 
-  // Check if a player can enter a specific batting slot
-  // NFHS Rule 3-3-5: any player may re-enter once, must return to same batting order position.
-  // Re-entry rules do not apply in the 1st inning — all swaps are free.
-  const canPlayerEnterSlot = (playerId, slot) => {
-    // No restrictions in inning 1
-    if (currentInning === 1) {
-      return { canSwap: true, reason: null }
-    }
-
-    const isStarter = startersList.includes(playerId)
-    const wasInBattingOrder = subsRemoved.includes(playerId) // sub who entered and was later removed
-    const playerOriginalSlot = originalSlots[playerId]
-    const timesReentered = reentryCountMap[playerId] || 0
-
-    // Fresh sub: not a starter, never entered the batting order — no restrictions
-    if (!isStarter && !wasInBattingOrder) {
-      return { canSwap: true, reason: null }
-    }
-
-    // Has been in batting order (as starter or sub who entered) — re-entry rules apply
-    if (timesReentered >= 1) {
-      return { canSwap: false, reason: 'Already re-entered once' }
-    }
-    if (playerOriginalSlot && playerOriginalSlot !== slot) {
-      return { canSwap: false, reason: `Must enter slot #${playerOriginalSlot}` }
-    }
+  // All swaps are allowed mid-inning — re-entry rules are validated when advancing innings
+  const canPlayerEnterSlot = (_playerId, _slot) => {
     return { canSwap: true, reason: null }
   }
 
@@ -1542,6 +1518,7 @@ function App() {
     innings: 7
   })
   const [currentGameId, setCurrentGameId] = useState(null)
+  const [reentryViolations, setReentryViolations] = useState([])
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncStatus, setSyncStatus] = useState('loading')
@@ -1749,43 +1726,6 @@ function App() {
     setGameData(prev => {
       const newGameData = { ...prev }
 
-      // Enforce re-entry rules before applying any substitute swap
-      if (swapType === 'substitute') {
-        const currentData = prev[currentInning]
-        if (currentData) {
-          const starters = currentData.starters || []
-          const originalSlots = currentData.originalSlots || {}
-          const reentryCount = currentData.reentryCount || {}
-          const subsRemovedFromBatting = currentData.subsRemovedFromBatting || []
-          const battingOrder = currentData.battingOrder
-          const subs = currentData.subs
-          const battingIndex1 = battingOrder.findIndex(p => p.id === player1.id)
-          const subIndex1 = subs.findIndex(p => p.id === player1.id)
-          const battingIndex2 = battingOrder.findIndex(p => p.id === player2.id)
-          const subIndex2 = subs.findIndex(p => p.id === player2.id)
-
-          let incomingId = null
-          let targetSlot = null
-          if (battingIndex1 !== -1 && subIndex2 !== -1) {
-            incomingId = player2.id
-            targetSlot = battingIndex1 + 1
-          } else if (subIndex1 !== -1 && battingIndex2 !== -1) {
-            incomingId = player1.id
-            targetSlot = battingIndex2 + 1
-          }
-
-          if (incomingId !== null && currentInning > 1) {
-            const isStarter = starters.includes(incomingId)
-            const wasInBattingOrder = subsRemovedFromBatting.includes(incomingId)
-            const playerOriginalSlot = originalSlots[incomingId]
-            const timesReentered = reentryCount[incomingId] || 0
-            if (isStarter || wasInBattingOrder) {
-              if (timesReentered >= 1) return prev
-              if (playerOriginalSlot && playerOriginalSlot !== targetSlot) return prev
-            }
-          }
-        }
-      }
 
       for (let inning = currentInning; inning <= 7; inning++) {
         if (!newGameData[inning]) continue
@@ -1804,10 +1744,6 @@ function App() {
           const index2 = newBattingOrder.findIndex(p => p.id === player2.id)
 
           if (index1 !== -1 && index2 !== -1) {
-            // Update originalSlots to reflect the reordered positions — these become the
-            // "official" batting order slots for re-entry tracking for the whole game
-            newOriginalSlots[player1.id] = index2 + 1
-            newOriginalSlots[player2.id] = index1 + 1
             const temp = newBattingOrder[index1]
             newBattingOrder[index1] = newBattingOrder[index2]
             newBattingOrder[index2] = temp
@@ -1819,50 +1755,16 @@ function App() {
           const subIndex2 = newSubs.findIndex(p => p.id === player2.id)
 
           if (battingIndex1 !== -1 && subIndex2 !== -1) {
-            // Player in batting order (player1/fromBatting) is being replaced by someone on bench (player2/fromSubs)
-            const fromBatting = newBattingOrder[battingIndex1]
-            const fromSubs = newSubs[subIndex2]
-            const slot = battingIndex1 + 1
-
-            // Track entry slot on first entry; increment re-entry count on subsequent entries
-            if (!newOriginalSlots[fromSubs.id]) {
-              newOriginalSlots[fromSubs.id] = slot
-            } else {
-              newReentryCount[fromSubs.id] = (newReentryCount[fromSubs.id] || 0) + 1
-            }
-
-            // The person leaving (fromBatting) - if NOT a starter, mark them as removed
-            const leavingIsStarter = newStarters.includes(fromBatting.id)
-            if (!leavingIsStarter && !newSubsRemovedFromBatting.includes(fromBatting.id)) {
-              newSubsRemovedFromBatting.push(fromBatting.id)
-            }
-
-            newBattingOrder[battingIndex1] = { ...fromSubs }
-            newSubs[subIndex2] = { ...fromBatting }
-            // Field positions are managed independently - no automatic transfer
+            // Player in batting order replaced by bench player — just swap, tracking happens at inning advance
+            const temp = { ...newBattingOrder[battingIndex1] }
+            newBattingOrder[battingIndex1] = { ...newSubs[subIndex2] }
+            newSubs[subIndex2] = temp
           }
           else if (subIndex1 !== -1 && battingIndex2 !== -1) {
-            // Someone on bench (player1/fromSubs) is replacing player in batting order (player2/fromBatting)
-            const fromSubs = newSubs[subIndex1]
-            const fromBatting = newBattingOrder[battingIndex2]
-            const slot = battingIndex2 + 1
-
-            // Track entry slot on first entry; increment re-entry count on subsequent entries
-            if (!newOriginalSlots[fromSubs.id]) {
-              newOriginalSlots[fromSubs.id] = slot
-            } else {
-              newReentryCount[fromSubs.id] = (newReentryCount[fromSubs.id] || 0) + 1
-            }
-
-            // The person leaving (fromBatting) - if NOT a starter, mark them as removed
-            const leavingIsStarter = newStarters.includes(fromBatting.id)
-            if (!leavingIsStarter && !newSubsRemovedFromBatting.includes(fromBatting.id)) {
-              newSubsRemovedFromBatting.push(fromBatting.id)
-            }
-
-            newBattingOrder[battingIndex2] = { ...fromSubs }
-            newSubs[subIndex1] = { ...fromBatting }
-            // Field positions are managed independently - no automatic transfer
+            // Bench player replacing batting order player — just swap, tracking happens at inning advance
+            const temp = { ...newBattingOrder[battingIndex2] }
+            newBattingOrder[battingIndex2] = { ...newSubs[subIndex1] }
+            newSubs[subIndex1] = temp
           }
         }
 
@@ -1884,65 +1786,92 @@ function App() {
     setSwapModal({ isOpen: false, player: null })
   }
 
+  const validateReentry = (inningData) => {
+    const violations = []
+    const prevStarters = new Set(inningData.starters || [])
+    const originalSlots = inningData.originalSlots || {}
+    const reentryCount = inningData.reentryCount || {}
+    const subsRemovedFromBatting = inningData.subsRemovedFromBatting || []
+
+    inningData.battingOrder.forEach((p, index) => {
+      const slot = index + 1
+      const wasInBatting = prevStarters.has(p.id) || subsRemovedFromBatting.includes(p.id)
+      if (!prevStarters.has(p.id) && wasInBatting) {
+        // Re-entering player — check rules
+        if ((reentryCount[p.id] || 0) >= 1) {
+          violations.push(`${p.name || 'Player'} has already used their re-entry`)
+        } else if (originalSlots[p.id] && originalSlots[p.id] !== slot) {
+          violations.push(`${p.name || 'Player'} must return to batting slot ${originalSlots[p.id]} (currently in slot ${slot})`)
+        }
+      }
+    })
+    return violations
+  }
+
   const handleInningChange = (newInning) => {
-    if (!gameData[newInning]) {
-      setGameData(prev => {
-        let sourceInning = newInning - 1
-        while (sourceInning > 0 && !prev[sourceInning]) {
-          sourceInning--
-        }
-
-        if (sourceInning > 0 && prev[sourceInning]) {
-          const source = prev[sourceInning]
-
-          // When advancing to the next inning, calculate re-entry state from
-          // what actually changed during the source inning (not mid-inning swaps).
-          // This lets coaches freely correct mistakes within an inning.
-          const prevStarters = new Set(source.starters || [])
-          const newReentryCount = { ...(source.reentryCount || {}) }
-          const newSubsRemovedFromBatting = [...(source.subsRemovedFromBatting || [])]
-
-          // Players now in batting order who weren't starters at start of source inning → re-entered
-          source.battingOrder.forEach(p => {
-            if (!prevStarters.has(p.id)) {
-              newReentryCount[p.id] = (newReentryCount[p.id] || 0) + 1
-            }
-          })
-
-          // Players who were starters but are now on bench → removed this inning
-          const finalBattingIds = new Set(source.battingOrder.map(p => p.id))
-          source.subs.forEach(p => {
-            if (prevStarters.has(p.id) && !newSubsRemovedFromBatting.includes(p.id)) {
-              newSubsRemovedFromBatting.push(p.id)
-            }
-          })
-
-          // New starters and originalSlots based on final batting order of source inning
-          const newOriginalSlots = {}
-          const newStarters = []
-          source.battingOrder.forEach((p, index) => {
-            newOriginalSlots[p.id] = index + 1
-            newStarters.push(p.id)
-          })
-
-          const newGameData = {
-            ...prev,
-            [newInning]: createInningData(
-              source.battingOrder,
-              source.subs,
-              source.fieldAssignments,
-              newOriginalSlots,
-              newStarters,
-              newReentryCount,
-              newSubsRemovedFromBatting
-            )
-          }
-          syncCurrentGame(newGameData, gameInfo, currentGameId)
-          return newGameData
-        }
-        return prev
-      })
+    // Validate re-entry rules before advancing forward
+    if (newInning > currentInning && gameData[currentInning]) {
+      const violations = validateReentry(gameData[currentInning])
+      if (violations.length > 0) {
+        setReentryViolations(violations)
+        return
+      }
     }
+    setReentryViolations([])
+
+    setGameData(prev => {
+      let sourceInning = newInning - 1
+      while (sourceInning > 0 && !prev[sourceInning]) sourceInning--
+
+      if (sourceInning <= 0 || !prev[sourceInning]) return prev
+
+      const source = prev[sourceInning]
+      const prevStarters = new Set(source.starters || [])
+      const newReentryCount = { ...(source.reentryCount || {}) }
+      const newSubsRemovedFromBatting = [...(source.subsRemovedFromBatting || [])]
+      const newOriginalSlots = { ...(source.originalSlots || {}) }
+      const newStarters = source.battingOrder.map(p => p.id)
+
+      // Set originalSlots for players entering for the first time this inning
+      source.battingOrder.forEach((p, index) => {
+        if (!newOriginalSlots[p.id]) newOriginalSlots[p.id] = index + 1
+      })
+
+      // Players who entered this inning → increment reentryCount
+      source.battingOrder.forEach(p => {
+        if (!prevStarters.has(p.id)) {
+          newReentryCount[p.id] = (newReentryCount[p.id] || 0) + 1
+        }
+      })
+
+      // Players who left this inning → track as removed
+      source.subs.forEach(p => {
+        if (prevStarters.has(p.id) && !newSubsRemovedFromBatting.includes(p.id)) {
+          newSubsRemovedFromBatting.push(p.id)
+        }
+      })
+
+      const newInningData = createInningData(
+        source.battingOrder,
+        source.subs,
+        source.fieldAssignments,
+        newOriginalSlots,
+        newStarters,
+        newReentryCount,
+        newSubsRemovedFromBatting
+      )
+
+      // Always recalculate locked state, preserve existing lineup if inning already visited
+      const newGameData = {
+        ...prev,
+        [newInning]: prev[newInning]
+          ? { ...prev[newInning], originalSlots: newOriginalSlots, starters: newStarters, reentryCount: newReentryCount, subsRemovedFromBatting: newSubsRemovedFromBatting }
+          : newInningData
+      }
+      syncCurrentGame(newGameData, gameInfo, currentGameId)
+      return newGameData
+    })
+
     setCurrentInning(newInning)
   }
 
@@ -2170,6 +2099,20 @@ function App() {
           currentInning={currentInning}
           setCurrentInning={handleInningChange}
         />
+
+        {reentryViolations.length > 0 && (
+          <div className="mb-3 p-3 bg-red-50 border border-red-300 rounded-lg">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-red-700 mb-1">Re-entry violation — fix before advancing:</p>
+                <ul className="text-sm text-red-600 list-disc list-inside space-y-0.5">
+                  {reentryViolations.map((v, i) => <li key={i}>{v}</li>)}
+                </ul>
+              </div>
+              <button onClick={() => setReentryViolations([])} className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0">✕</button>
+            </div>
+          </div>
+        )}
 
         <DragDropContext onDragEnd={onDragEnd}>
         <div className="mb-4">
