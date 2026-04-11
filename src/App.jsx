@@ -1895,22 +1895,35 @@ function App() {
         if (sourceInning > 0 && prev[sourceInning]) {
           const source = prev[sourceInning]
 
-          // When advancing from inning 1 to inning 2, lock in the final lineup
-          // as the official starting point — reset all re-entry tracking
-          let originalSlots = source.originalSlots
-          let starters = source.starters
-          let reentryCount = source.reentryCount
-          let subsRemovedFromBatting = source.subsRemovedFromBatting
-          if (sourceInning === 1 && newInning === 2) {
-            originalSlots = {}
-            starters = []
-            source.battingOrder.forEach((p, index) => {
-              originalSlots[p.id] = index + 1
-              starters.push(p.id)
-            })
-            reentryCount = {}
-            subsRemovedFromBatting = []
-          }
+          // When advancing to the next inning, calculate re-entry state from
+          // what actually changed during the source inning (not mid-inning swaps).
+          // This lets coaches freely correct mistakes within an inning.
+          const prevStarters = new Set(source.starters || [])
+          const newReentryCount = { ...(source.reentryCount || {}) }
+          const newSubsRemovedFromBatting = [...(source.subsRemovedFromBatting || [])]
+
+          // Players now in batting order who weren't starters at start of source inning → re-entered
+          source.battingOrder.forEach(p => {
+            if (!prevStarters.has(p.id)) {
+              newReentryCount[p.id] = (newReentryCount[p.id] || 0) + 1
+            }
+          })
+
+          // Players who were starters but are now on bench → removed this inning
+          const finalBattingIds = new Set(source.battingOrder.map(p => p.id))
+          source.subs.forEach(p => {
+            if (prevStarters.has(p.id) && !newSubsRemovedFromBatting.includes(p.id)) {
+              newSubsRemovedFromBatting.push(p.id)
+            }
+          })
+
+          // New starters and originalSlots based on final batting order of source inning
+          const newOriginalSlots = {}
+          const newStarters = []
+          source.battingOrder.forEach((p, index) => {
+            newOriginalSlots[p.id] = index + 1
+            newStarters.push(p.id)
+          })
 
           const newGameData = {
             ...prev,
@@ -1918,10 +1931,10 @@ function App() {
               source.battingOrder,
               source.subs,
               source.fieldAssignments,
-              originalSlots,
-              starters,
-              reentryCount,
-              subsRemovedFromBatting
+              newOriginalSlots,
+              newStarters,
+              newReentryCount,
+              newSubsRemovedFromBatting
             )
           }
           syncCurrentGame(newGameData, gameInfo, currentGameId)
