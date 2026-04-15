@@ -1001,56 +1001,74 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
                     <p className="text-gray-400 italic">Not yet played</p>
                   ) : (
                     <div className="space-y-1.5">
-                      {/* Batting order */}
-                      <div className="space-y-0.5">
-                        {inningData.battingOrder.map((player, idx) => {
-                          const pos = Object.entries(inningData.fieldAssignments).find(([, pid]) => pid === player.id)?.[0]
-                          return (
-                            <div key={player.id} className="flex items-center gap-1 text-xs">
-                              <span className="text-gray-400 w-4 text-right">{idx + 1}.</span>
-                              {player.jersey && <span className="text-gray-400 w-5 text-right font-medium">#{player.jersey}</span>}
-                              <span className="font-medium text-gray-800">{player.name}</span>
-                              {pos && <span className="text-gray-500">({pos})</span>}
-                            </div>
-                          )
-                        })}
-                      </div>
+                      {/* Batting order — side-by-side when previous inning exists */}
+                      {inning > 1 && gameData[inning - 1] ? (
+                        <div className="grid grid-cols-2 gap-2 border-b border-gray-200 pb-1.5">
+                          {/* Before */}
+                          <div>
+                            <div className="text-xs text-gray-400 font-medium mb-0.5">← Inn {inning - 1}</div>
+                            {gameData[inning - 1].battingOrder.map((player, idx) => {
+                              const changed = inningData.battingOrder[idx]?.id !== player.id
+                              const pos = Object.entries(gameData[inning - 1].fieldAssignments).find(([, pid]) => pid === player.id)?.[0]
+                              return (
+                                <div key={player.id} className={`flex items-center gap-0.5 text-xs ${changed ? 'text-red-500' : 'text-gray-500'}`}>
+                                  <span className="w-4 text-right shrink-0">{idx + 1}.</span>
+                                  {player.jersey && <span className="w-5 text-right shrink-0">#{player.jersey}</span>}
+                                  <span className={changed ? 'line-through' : ''}>{player.name}</span>
+                                  {pos && <span className="text-gray-400 ml-0.5">({pos})</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {/* After */}
+                          <div>
+                            <div className="text-xs text-gray-400 font-medium mb-0.5">Inn {inning} →</div>
+                            {inningData.battingOrder.map((player, idx) => {
+                              const changed = gameData[inning - 1].battingOrder[idx]?.id !== player.id
+                              const pos = Object.entries(inningData.fieldAssignments).find(([, pid]) => pid === player.id)?.[0]
+                              return (
+                                <div key={player.id} className={`flex items-center gap-0.5 text-xs ${changed ? 'text-green-700 font-bold' : 'text-gray-800'}`}>
+                                  <span className="w-4 text-right shrink-0">{idx + 1}.</span>
+                                  {player.jersey && <span className="w-5 text-right shrink-0">#{player.jersey}</span>}
+                                  <span>{player.name}</span>
+                                  {pos && <span className="text-gray-500 ml-0.5">({pos})</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {inningData.battingOrder.map((player, idx) => {
+                            const pos = Object.entries(inningData.fieldAssignments).find(([, pid]) => pid === player.id)?.[0]
+                            return (
+                              <div key={player.id} className="flex items-center gap-1 text-xs">
+                                <span className="text-gray-400 w-4 text-right">{idx + 1}.</span>
+                                {player.jersey && <span className="text-gray-400 w-5 text-right font-medium">#{player.jersey}</span>}
+                                <span className="font-medium text-gray-800">{player.name}</span>
+                                {pos && <span className="text-gray-500">({pos})</span>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                       {/* Fielding positions */}
                       <div className="pt-1 border-t border-gray-200">
                         <div className="grid grid-cols-3 gap-x-2 gap-y-0.5">
                           {FIELD_POSITIONS.map(pos => {
                             const playerId = inningData.fieldAssignments[pos]
                             const player = playerId != null ? allPlayersMap[playerId] : null
+                            const prevPlayerId = inning > 1 ? gameData[inning - 1]?.fieldAssignments[pos] : null
+                            const fieldChanged = inning > 1 && prevPlayerId !== playerId
                             return (
                               <div key={pos} className="flex items-center gap-1 text-xs">
                                 <span className="font-bold text-blue-700 w-6 shrink-0">{pos}</span>
-                                <span className="text-gray-800 truncate">{player?.name || <span className="text-gray-300">—</span>}</span>
+                                <span className={`truncate ${fieldChanged ? 'text-green-700 font-bold' : 'text-gray-800'}`}>{player?.name || <span className="text-gray-300">—</span>}</span>
                               </div>
                             )
                           })}
                         </div>
                       </div>
-                      {/* Sub changes */}
-                      {(hasChanges && inning > 1) && (
-                        <div className="space-y-0.5 pt-1 border-t border-gray-100">
-                          {battingChanges.map((change, idx) => (
-                            <div key={`b${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-amber-50 rounded text-xs">
-                              <span className="font-bold text-amber-700">#{change.slot}</span>
-                              <span className="text-green-700 font-medium">{change.playerIn.name}{change.playerIn.jersey ? ` #${change.playerIn.jersey}` : ''}</span>
-                              <span className="text-gray-400">←</span>
-                              <span className="text-red-600 line-through">{change.playerOut.name}{change.playerOut.jersey ? ` #${change.playerOut.jersey}` : ''}</span>
-                            </div>
-                          ))}
-                          {fieldChanges.map((change, idx) => (
-                            <div key={`f${idx}`} className="flex items-center gap-1 py-0.5 px-1.5 bg-blue-50 rounded text-xs">
-                              <span className="font-bold text-blue-700 w-6">{change.position}</span>
-                              <span className="text-green-700 font-medium">{change.playerIn ? `${change.playerIn.name}${change.playerIn.jersey ? ` #${change.playerIn.jersey}` : ''}` : '-'}</span>
-                              <span className="text-gray-400">←</span>
-                              <span className="text-red-600 line-through">{change.playerOut ? `${change.playerOut.name}${change.playerOut.jersey ? ` #${change.playerOut.jersey}` : ''}` : '-'}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
