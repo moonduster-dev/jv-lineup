@@ -1063,7 +1063,7 @@ function InningSubsModal({ isOpen, onClose, gameData, gameInfo }) {
                             return (
                               <div key={pos} className="flex items-center gap-1 text-xs">
                                 <span className="font-bold text-blue-700 w-6 shrink-0">{pos}</span>
-                                <span className={`truncate ${fieldChanged ? 'text-green-700 font-bold' : 'text-gray-800'}`}>{player?.name || <span className="text-gray-300">—</span>}</span>
+                                <span className={`truncate ${fieldChanged ? 'text-green-800 font-bold bg-green-100 px-1 rounded' : 'text-gray-800'}`}>{player?.name || <span className="text-gray-300">—</span>}</span>
                               </div>
                             )
                           })}
