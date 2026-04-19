@@ -58,15 +58,10 @@ const createInitialGameData = (roster) => {
   const initialSubs = roster.subs.map(p => ({ ...p }))
   const initialFieldAssignments = createInitialFieldAssignments()
 
-  const initialOriginalSlots = {}
-  const initialStarters = []
-  initialBattingOrder.forEach((p, index) => {
-    initialOriginalSlots[p.id] = index + 1
-    initialStarters.push(p.id)
-  })
-
+  // starters and originalSlots are null for inning 1 — the lineup is not locked
+  // until the user advances to inning 2.
   return {
-    1: createInningData(initialBattingOrder, initialSubs, initialFieldAssignments, initialOriginalSlots, initialStarters, {}, [])
+    1: createInningData(initialBattingOrder, initialSubs, initialFieldAssignments, null, null, {}, [])
   }
 }
 
@@ -1856,19 +1851,22 @@ function App() {
         newOriginalSlots[p.id] = index + 1
       })
 
-      // Players who entered this inning → increment reentryCount
-      source.battingOrder.forEach(p => {
-        if (!prevStarters.has(p.id)) {
-          newReentryCount[p.id] = (newReentryCount[p.id] || 0) + 1
-        }
-      })
+      // Only track re-entry when inning 1 had locked starters (prevStarters is non-empty)
+      if (prevStarters.size > 0) {
+        // Players who entered this inning → increment reentryCount
+        source.battingOrder.forEach(p => {
+          if (!prevStarters.has(p.id)) {
+            newReentryCount[p.id] = (newReentryCount[p.id] || 0) + 1
+          }
+        })
 
-      // Players who left this inning → track as removed
-      source.subs.forEach(p => {
-        if (prevStarters.has(p.id) && !newSubsRemovedFromBatting.includes(p.id)) {
-          newSubsRemovedFromBatting.push(p.id)
-        }
-      })
+        // Players who left this inning → track as removed
+        source.subs.forEach(p => {
+          if (prevStarters.has(p.id) && !newSubsRemovedFromBatting.includes(p.id)) {
+            newSubsRemovedFromBatting.push(p.id)
+          }
+        })
+      }
 
       const newInningData = createInningData(
         source.battingOrder,
