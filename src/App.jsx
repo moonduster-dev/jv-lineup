@@ -2149,7 +2149,7 @@ function App() {
           onClick={openGameDay}
           className="w-full mb-3 py-3 rounded-lg text-lg font-black bg-amber-400 text-gray-900 shadow-md hover:bg-amber-300"
         >
-          ⚾ Game Day Display
+          🥎 Game Day Display
         </button>
 
         {/* Action Buttons */}
