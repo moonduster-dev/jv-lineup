@@ -2,10 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { db, auth } from './firebase'
 import GameDay from './GameDay'
-import { doc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore'
+import { doc, setDoc, onSnapshot, collection, deleteDoc, writeBatch } from 'firebase/firestore'
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
-const TEAM_NAME = 'Our Lady of Good Counsel 2026 JV Softball'
+const teamNameFor = (season) => `Our Lady of Good Counsel ${season} JV Softball`
+// Games without a `season` field belong to the current season; archiving a
+// season stamps its games with the season name. settings/season holds the
+// current season name plus each archived season's roster snapshot.
+const DEFAULT_SEASON_INFO = { current: '2026', archived: [] }
 const FIELD_POSITIONS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF']
 const INNINGS = [1, 2, 3, 4, 5, 6, 7]
 
@@ -389,7 +393,7 @@ function SwapModal({ isOpen, onClose, currentPlayer, battingOrder, subs, origina
   )
 }
 
-function GameSummaryModal({ isOpen, onClose, gameData, gameInfo, roster }) {
+function GameSummaryModal({ isOpen, onClose, gameData, gameInfo, roster, teamName }) {
   if (!isOpen) return null
 
   const allRosterPlayers = roster ? [...roster.players, ...roster.subs] : []
@@ -411,7 +415,7 @@ function GameSummaryModal({ isOpen, onClose, gameData, gameInfo, roster }) {
   }
 
   const handleExport = () => {
-    let csv = `${TEAM_NAME}\nGame: vs ${gameInfo.opponent} - ${gameInfo.date}\n\n`
+    let csv = `${teamName}\nGame: vs ${gameInfo.opponent} - ${gameInfo.date}\n\n`
     csv += 'Slot,' + INNINGS.map(i => `Inning ${i}`).join(',') + '\n'
 
     for (let slot = 1; slot <= 9; slot++) {
@@ -444,7 +448,7 @@ function GameSummaryModal({ isOpen, onClose, gameData, gameInfo, roster }) {
         <div className="flex items-center gap-3 p-4 border-b border-gray-200 print:border-b-2">
           <img src="/GClogo.jpg" alt="GC Logo" className="w-12 h-12 object-contain print:w-16 print:h-16" />
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-900">{TEAM_NAME}</h3>
+            <h3 className="text-lg font-bold text-gray-900">{teamName}</h3>
             <p className="text-sm text-gray-600">vs {gameInfo.opponent} - {gameInfo.date}</p>
           </div>
           <div className="flex gap-2 print:hidden">
@@ -634,7 +638,8 @@ function calculateGameMetrics(game, roster) {
     .sort((a, b) => b.total - a.total)
 }
 
-function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGameInfo, roster }) {
+// archivedSeason: set when showing an archived season (no "current game" option)
+function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGameInfo, roster, archivedSeason }) {
   const [viewMode, setViewMode] = useState('season')
   const [selectedGameId, setSelectedGameId] = useState(null)
 
@@ -696,7 +701,7 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
   const seasonStats = calculateSeasonMetrics()
   const selectedGame = savedGames.find(g => g.id === selectedGameId)
   const gameStats = selectedGame ? calculateGameMetrics(selectedGame, roster) :
-    (currentGameInfo.opponent ? calculateGameMetrics({ gameData: currentGameData, innings: currentGameInfo.innings || 7 }, roster) : [])
+    (!archivedSeason && currentGameInfo.opponent ? calculateGameMetrics({ gameData: currentGameData, innings: currentGameInfo.innings || 7 }, roster) : [])
 
   const displayStats = viewMode === 'season' ? seasonStats : gameStats
   const totalGames = savedGames.length
@@ -708,7 +713,9 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
           <div className="flex justify-between items-center mb-3">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Player Metrics</h3>
-              <p className="text-sm text-gray-500">{totalGames} games saved</p>
+              <p className="text-sm text-gray-500">
+                {archivedSeason ? `${archivedSeason} season (archived) · ` : ''}{totalGames} games saved
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -747,7 +754,9 @@ function MetricsModal({ isOpen, onClose, savedGames, currentGameData, currentGam
               onChange={(e) => setSelectedGameId(e.target.value || null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-800 text-sm"
             >
-              <option value="">Current Game {currentGameInfo.opponent ? `(vs ${currentGameInfo.opponent})` : ''}</option>
+              <option value="">
+                {archivedSeason ? 'Select a game' : `Current Game ${currentGameInfo.opponent ? `(vs ${currentGameInfo.opponent})` : ''}`}
+              </option>
               {savedGames.map(game => (
                 <option key={game.id} value={game.id}>
                   vs {game.opponent} - {game.date}
@@ -894,6 +903,180 @@ function SavedGamesModal({ isOpen, onClose, savedGames, onLoadGame, onDeleteGame
             ))}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function SeasonsModal({ isOpen, onClose, seasonInfo, activeGameCount, savedGames, canEdit, onArchive, onViewGame, onViewMetrics }) {
+  const [archiving, setArchiving] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [keepRoster, setKeepRoster] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [openSeason, setOpenSeason] = useState(null)
+
+  if (!isOpen) return null
+
+  const current = seasonInfo.current
+  const archived = [...seasonInfo.archived].reverse()
+  const takenNames = [current, ...seasonInfo.archived.map(s => s.name)]
+  const trimmed = newName.trim()
+  const nameError = !trimmed ? 'Enter a name for the new season'
+    : takenNames.includes(trimmed) ? `"${trimmed}" is already used` : ''
+
+  const startArchive = () => {
+    setNewName(/^\d{4}$/.test(current) ? String(Number(current) + 1) : '')
+    setKeepRoster(true)
+    setError('')
+    setArchiving(true)
+  }
+
+  const confirmArchive = async () => {
+    if (nameError) return
+    setBusy(true)
+    setError('')
+    try {
+      await onArchive(trimmed, keepRoster)
+      setArchiving(false)
+    } catch (err) {
+      console.error('Error archiving season:', err)
+      setError('Archive failed — nothing was changed. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-auto print:hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-auto">
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-gray-900">Seasons</h3>
+          <button
+            onClick={onClose}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="p-4 border-b border-gray-200">
+          <div className="text-xs font-semibold uppercase text-gray-500">Current season</div>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-xl font-bold" style={{ color: '#1e3a5f' }}>{current}</div>
+              <div className="text-sm text-gray-500">{activeGameCount} games saved</div>
+            </div>
+            {canEdit && !archiving && (
+              <button
+                onClick={startArchive}
+                className="px-3 py-2 bg-amber-500 text-gray-900 rounded-md hover:bg-amber-400 text-sm font-medium shadow"
+              >
+                Archive &amp; Start New Season
+              </button>
+            )}
+          </div>
+
+          {archiving && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-300 rounded-lg space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New season name</label>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. 2027"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-800"
+                />
+                {newName && nameError && <p className="text-xs text-red-600 mt-1">{nameError}</p>}
+              </div>
+              <label className="flex items-start gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={keepRoster} onChange={(e) => setKeepRoster(e.target.checked)} className="mt-0.5" />
+                <span>Keep the current roster (you can edit it in Manage Roster afterward)</span>
+              </label>
+              <p className="text-sm text-gray-700">
+                The {activeGameCount} saved games move into the <b>{current}</b> archive, where they stay viewable.
+                {trimmed && !nameError && <> <b>{trimmed}</b> starts with no games.</>}
+                {' '}The game on screen is cleared, so <b>save it first</b> if you need it.
+              </p>
+              {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setArchiving(false)}
+                  disabled={busy}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmArchive}
+                  disabled={busy || !!nameError}
+                  className="flex-1 px-4 py-2 text-white rounded-md font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: busy || nameError ? undefined : '#1e3a5f' }}
+                >
+                  {busy ? 'Archiving…' : `Archive ${current}`}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4">
+          <div className="text-xs font-semibold uppercase text-gray-500 mb-2">Archived seasons</div>
+          {archived.length === 0 ? (
+            <p className="text-sm text-gray-500">No archived seasons yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {archived.map(season => {
+                const games = savedGames
+                  .filter(g => g.season === season.name)
+                  .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+                const isOpenSeason = openSeason === season.name
+                return (
+                  <div key={season.name} className="border border-gray-200 rounded-lg">
+                    <button
+                      onClick={() => setOpenSeason(isOpenSeason ? null : season.name)}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50"
+                    >
+                      <div>
+                        <div className="font-bold" style={{ color: '#1e3a5f' }}>{season.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {games.length} games · archived {season.archivedAt?.slice(0, 10)}
+                        </div>
+                      </div>
+                      <span className="text-gray-400">{isOpenSeason ? '▲' : '▼'}</span>
+                    </button>
+                    {isOpenSeason && (
+                      <div className="border-t border-gray-200 p-2">
+                        <button
+                          onClick={() => onViewMetrics(season)}
+                          className="w-full mb-2 px-3 py-2 bg-amber-500 text-gray-900 rounded-md hover:bg-amber-400 text-sm font-medium"
+                        >
+                          {season.name} Player Metrics
+                        </button>
+                        {games.length === 0 && <p className="text-sm text-gray-500 p-2">No games in this season.</p>}
+                        {games.map(game => (
+                          <div key={game.id} className="flex items-center gap-2 p-2 border-b border-gray-100 last:border-b-0">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-800">vs {game.opponent}</div>
+                              <div className="text-sm text-gray-500">{game.date}</div>
+                            </div>
+                            <button
+                              onClick={() => onViewGame(game, season)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                            >
+                              View
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -1542,6 +1725,11 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [syncStatus, setSyncStatus] = useState('loading')
   const [gameDayOpen, setGameDayOpen] = useState(false)
+  const [seasonInfo, setSeasonInfo] = useState(DEFAULT_SEASON_INFO)
+  const [seasonsModal, setSeasonsModal] = useState(false)
+  // Archived game / season being viewed from the Seasons window
+  const [archivedGameView, setArchivedGameView] = useState(null)
+  const [archivedMetricsSeason, setArchivedMetricsSeason] = useState(null)
   const [live, setLive] = useState(createInitialLive)
   // Ref so full-document syncs always carry the latest live state
   const liveRef = useRef(live)
@@ -1610,12 +1798,26 @@ function App() {
       setSyncStatus('error')
     })
 
+    // Real-time listener for season info (current season name + archives)
+    const unsubscribeSeason = onSnapshot(doc(db, 'settings', 'season'), (docSnap) => {
+      const data = docSnap.exists() ? docSnap.data() : {}
+      setSeasonInfo({ ...DEFAULT_SEASON_INFO, ...data, archived: data.archived || [] })
+    }, (error) => {
+      console.error('Season sync error:', error.code, error.message)
+      setSyncStatus('error')
+    })
+
     return () => {
       unsubscribeRoster()
       unsubscribeCurrentGame()
       unsubscribeGames()
+      unsubscribeSeason()
     }
   }, [])
+
+  const teamName = teamNameFor(seasonInfo.current)
+  // Archived games carry a season name; everything else is this season
+  const activeGames = savedGames.filter(g => !g.season)
 
   const currentData = gameData[currentInning] || gameData[1]
   const allPlayers = [...currentData.battingOrder, ...currentData.subs]
@@ -2029,9 +2231,35 @@ function App() {
     }
   }
 
-  const handleNewGame = () => {
+  // Stamp this season's games with its name, snapshot the roster into the
+  // archive list, switch to the new season, and start a fresh game. One batch,
+  // so either everything is archived or nothing changes.
+  const handleArchiveSeason = async (newSeasonName, keepRoster) => {
     if (!canEdit) return
-    const newGameData = createInitialGameData(roster)
+    const archivedAt = new Date().toISOString()
+    const newRoster = keepRoster ? roster : createDefaultRoster()
+    const batch = writeBatch(db)
+    activeGames.forEach(g => {
+      batch.update(doc(db, 'games', g.id), { season: seasonInfo.current })
+    })
+    batch.set(doc(db, 'settings', 'season'), {
+      current: newSeasonName,
+      archived: [
+        ...seasonInfo.archived,
+        { name: seasonInfo.current, archivedAt, gameCount: activeGames.length, roster: JSON.parse(JSON.stringify(roster)) }
+      ]
+    })
+    if (!keepRoster) batch.set(doc(db, 'settings', 'roster'), newRoster)
+
+    setSyncStatus('saving')
+    await batch.commit()
+    setRoster(newRoster)
+    handleNewGame(newRoster)
+  }
+
+  const handleNewGame = (rosterForGame = roster) => {
+    if (!canEdit) return
+    const newGameData = createInitialGameData(rosterForGame)
     const newGameInfo = { opponent: '', date: new Date().toISOString().split('T')[0], innings: 7 }
     setGameData(newGameData)
     setGameInfo(newGameInfo)
@@ -2080,7 +2308,7 @@ function App() {
         <div className="flex items-center gap-3 mb-4 p-4 rounded-lg shadow-md" style={{ backgroundColor: '#1e3a5f' }}>
           <img src="/GClogo.jpg" alt="GC Logo" className="w-16 h-16 object-contain rounded-lg bg-white p-1" />
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-amber-400">{TEAM_NAME}</h1>
+            <h1 className="text-lg font-bold text-amber-400">{teamName}</h1>
             <div className="flex items-center gap-2">
               <p className="text-sm text-gray-300">Lineup Manager</p>
               <span className={`text-xs px-2 py-0.5 rounded font-medium ${
@@ -2135,7 +2363,7 @@ function App() {
             </div>
             {canEdit && (
               <button
-                onClick={handleNewGame}
+                onClick={() => handleNewGame()}
                 className="px-3 py-1.5 text-sm text-white rounded font-medium hover:opacity-90"
                 style={{ backgroundColor: '#1e3a5f' }}
               >
@@ -2205,6 +2433,13 @@ function App() {
               Manage Roster
             </button>
           )}
+          <button
+            onClick={() => setSeasonsModal(true)}
+            className="px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors text-sm font-medium shadow"
+            style={{ backgroundColor: '#1e3a5f' }}
+          >
+            Seasons
+          </button>
         </div>
 
         <InningTabs
@@ -2400,7 +2635,7 @@ function App() {
       <MetricsModal
         isOpen={metricsModal}
         onClose={() => setMetricsModal(false)}
-        savedGames={savedGames}
+        savedGames={activeGames}
         currentGameData={gameData}
         currentGameInfo={gameInfo}
         roster={roster}
@@ -2409,7 +2644,7 @@ function App() {
       <SavedGamesModal
         isOpen={savedGamesModal}
         onClose={() => setSavedGamesModal(false)}
-        savedGames={savedGames}
+        savedGames={activeGames}
         onLoadGame={handleLoadGame}
         onDeleteGame={handleDeleteGame}
         canEdit={canEdit}
@@ -2419,7 +2654,7 @@ function App() {
 
       {gameDayOpen && (
         <GameDay
-          teamName={TEAM_NAME}
+          teamName={teamName}
           gameInfo={gameInfo}
           gameData={gameData}
           inning={currentInning}
@@ -2457,7 +2692,43 @@ function App() {
         gameData={gameData}
         gameInfo={gameInfo}
         roster={roster}
+        teamName={teamName}
       />
+
+      <SeasonsModal
+        isOpen={seasonsModal}
+        onClose={() => setSeasonsModal(false)}
+        seasonInfo={seasonInfo}
+        activeGameCount={activeGames.length}
+        savedGames={savedGames}
+        canEdit={canEdit}
+        onArchive={handleArchiveSeason}
+        onViewGame={(game, season) => setArchivedGameView({ game, season })}
+        onViewMetrics={(season) => setArchivedMetricsSeason(season)}
+      />
+
+      {archivedGameView && (
+        <GameSummaryModal
+          isOpen
+          onClose={() => setArchivedGameView(null)}
+          gameData={archivedGameView.game.gameData}
+          gameInfo={{ opponent: archivedGameView.game.opponent, date: archivedGameView.game.date, innings: archivedGameView.game.innings || 7 }}
+          roster={archivedGameView.season.roster}
+          teamName={teamNameFor(archivedGameView.season.name)}
+        />
+      )}
+
+      {archivedMetricsSeason && (
+        <MetricsModal
+          isOpen
+          onClose={() => setArchivedMetricsSeason(null)}
+          savedGames={savedGames.filter(g => g.season === archivedMetricsSeason.name)}
+          currentGameData={gameData}
+          currentGameInfo={gameInfo}
+          roster={archivedMetricsSeason.roster}
+          archivedSeason={archivedMetricsSeason.name}
+        />
+      )}
     </>
   )
 }
