@@ -158,6 +158,22 @@ export default function GameDay({
   const online = useOnline()
   useWakeLock()
 
+  // While Game Day is open, freeze the page underneath so its scroll bounce
+  // can't trigger browser gestures either
+  useEffect(() => {
+    const html = document.documentElement
+    const prev = [html.style.overscrollBehavior, document.body.style.overflow]
+    html.style.overscrollBehavior = 'none'
+    document.body.style.overflow = 'hidden'
+    return () => {
+      html.style.overscrollBehavior = prev[0]
+      document.body.style.overflow = prev[1]
+    }
+  }, [])
+
+  // Launched from the home screen there are no browser bars, so no Full button needed
+  const isInstalled = window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone
+
   const theme = THEMES[themeName]
   const toggleTheme = () => {
     const next = themeName === 'sun' ? 'night' : 'sun'
@@ -195,7 +211,10 @@ export default function GameDay({
   const maxInning = Math.min(gameInfo.innings || 7, 7)
 
   return (
-    <div className={`fixed inset-0 z-40 overflow-auto print:hidden ${theme.page}`}>
+    // overscroll-none keeps scroll bounce from reaching the browser's own gestures
+    // (pull-to-refresh, Safari's swipe-down-to-exit-fullscreen)
+    <div className={`fixed inset-0 z-40 overflow-auto overscroll-none print:hidden ${theme.page}`}
+      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="p-3 sm:p-4 max-w-[1400px] mx-auto">
         {/* Top bar */}
         <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -212,7 +231,7 @@ export default function GameDay({
           <button onClick={toggleTheme} className={`px-3 py-2 rounded-lg font-bold ${theme.buttonAlt}`}>
             {themeName === 'sun' ? '☾ Night' : '☀ Sun'}
           </button>
-          {document.documentElement.requestFullscreen && (
+          {!isInstalled && document.documentElement.requestFullscreen && (
             <button onClick={toggleFullscreen} className={`px-3 py-2 rounded-lg font-bold ${theme.buttonAlt}`}>⛶ Full</button>
           )}
           <button onClick={onClose} className={`px-4 py-2 rounded-lg font-bold ${theme.button}`}>Exit</button>
