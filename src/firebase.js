@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -13,5 +13,9 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
+// Offline-first: cache Firestore data in IndexedDB so the lineup loads and edits
+// keep working with no signal at the field; writes sync when back online.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+})
 export const auth = getAuth(app)

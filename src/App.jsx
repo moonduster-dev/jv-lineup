@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { db, auth } from './firebase'
+import GameDay from './GameDay'
 import { doc, setDoc, onSnapshot, collection, deleteDoc } from 'firebase/firestore'
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
@@ -44,6 +45,11 @@ const createInningData = (battingOrder, subs, fieldAssignments, originalSlots = 
   reentryCount: reentryCount ? { ...reentryCount } : {},
   subsRemovedFromBatting: subsRemovedFromBatting ? [...subsRemovedFromBatting] : [],
 })
+
+// Live game-day state shared across devices: the inning being played, who's up,
+// outs, and pitch counts keyed by player id
+const createInitialLive = () => ({ inning: 1, batterIndex: 0, outs: 0, pitches: {} })
+const normalizeLive = (live) => ({ ...createInitialLive(), ...(live || {}) })
 
 const createInitialFieldAssignments = () => {
   const assignments = {}
@@ -1535,6 +1541,11 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [syncStatus, setSyncStatus] = useState('loading')
+  const [gameDayOpen, setGameDayOpen] = useState(false)
+  const [live, setLive] = useState(createInitialLive)
+  // Ref so full-document syncs always carry the latest live state
+  const liveRef = useRef(live)
+  const gameDayOpenRef = useRef(false)
 
   const canEdit = isAuthenticated
 
@@ -1572,6 +1583,13 @@ function App() {
         setGameData(data.gameData)
         setGameInfo({ opponent: data.opponent || '', date: data.date || new Date().toISOString().split('T')[0], innings: data.innings || 7 })
         setCurrentGameId(data.id || null)
+        const loadedLive = normalizeLive(data.live)
+        liveRef.current = loadedLive
+        setLive(loadedLive)
+        // In Game Day every device follows the shared live inning
+        if (gameDayOpenRef.current && data.gameData?.[loadedLive.inning]) {
+          setCurrentInning(loadedLive.inning)
+        }
       }
       setLoading(false)
       setSyncStatus('synced')
@@ -1625,12 +1643,57 @@ function App() {
         date: newGameInfo.date,
         innings: newGameInfo.innings || 7,
         id: newGameId,
+        live: liveRef.current,
         updatedAt: new Date().toISOString()
       })
       setSyncStatus('synced')
     } catch (error) {
       console.error('Error syncing current game:', error)
       setSyncStatus('error')
+    }
+  }
+
+  // Patch the live game-day state (batter, outs, pitches, inning) and sync it
+  const updateLive = async (patch) => {
+    if (!canEdit) return
+    const newLive = { ...liveRef.current, ...patch }
+    liveRef.current = newLive
+    setLive(newLive)
+    setSyncStatus('saving')
+    try {
+      await setDoc(doc(db, 'settings', 'currentGame'), { live: newLive, updatedAt: new Date().toISOString() }, { merge: true })
+      setSyncStatus('synced')
+    } catch (error) {
+      console.error('Error syncing live state:', error)
+      setSyncStatus('error')
+    }
+  }
+
+  const resetLive = (newLive) => {
+    liveRef.current = newLive
+    setLive(newLive)
+  }
+
+  const openGameDay = () => {
+    // The coach's current inning becomes the live inning; viewers jump to it
+    // (and keep following it via the currentGame listener)
+    if (canEdit) {
+      if (live.inning !== currentInning) updateLive({ inning: currentInning })
+    } else if (gameData[live.inning]) {
+      setCurrentInning(live.inning)
+    }
+    gameDayOpenRef.current = true
+    setGameDayOpen(true)
+  }
+
+  const closeGameDay = () => {
+    gameDayOpenRef.current = false
+    setGameDayOpen(false)
+  }
+
+  const handleGameDayInning = (newInning, force = false) => {
+    if (handleInningChange(newInning, force)) {
+      updateLive({ inning: newInning, outs: 0 })
     }
   }
 
@@ -1734,6 +1797,27 @@ function App() {
     })
   }
 
+  // Tap-to-assign: put playerId at position; if they were already fielding
+  // somewhere else, the player displaced from this position takes their old spot
+  const handleAssignPosition = (position, playerId) => {
+    if (!canEdit) return
+    setGameData(prev => {
+      const assignments = { ...prev[currentInning].fieldAssignments }
+      const displaced = assignments[position] ?? null
+      const fromPosition = playerId != null
+        ? Object.keys(assignments).find(pos => assignments[pos] === playerId)
+        : null
+      if (fromPosition && fromPosition !== position) assignments[fromPosition] = displaced
+      assignments[position] = playerId
+      const newGameData = {
+        ...prev,
+        [currentInning]: { ...prev[currentInning], fieldAssignments: assignments }
+      }
+      syncCurrentGame(newGameData, gameInfo, currentGameId)
+      return newGameData
+    })
+  }
+
   const handleSwap = (player1, player2, swapType) => {
     if (!canEdit) return
     setGameData(prev => {
@@ -1827,7 +1911,7 @@ function App() {
       const violations = validateReentry(gameData[currentInning])
       if (violations.length > 0) {
         setReentryViolations({ messages: violations, targetInning: newInning })
-        return
+        return false
       }
     }
     setReentryViolations({ messages: [], targetInning: null })
@@ -1890,6 +1974,7 @@ function App() {
     })
 
     setCurrentInning(newInning)
+    return true
   }
 
   const handleSaveGame = async (opponent, date, innings) => {
@@ -1902,6 +1987,7 @@ function App() {
       date,
       innings: innings || 7,
       gameData: JSON.parse(JSON.stringify(gameData)),
+      live: liveRef.current,
       updatedAt: new Date().toISOString()
     }
 
@@ -1925,6 +2011,7 @@ function App() {
     setCurrentGameId(game.id)
     setCurrentInning(1)
     setSavedGamesModal(false)
+    resetLive({ ...normalizeLive(game.live), inning: 1 })
     // Sync to all devices
     syncCurrentGame(game.gameData, { opponent: game.opponent, date: game.date, innings: game.innings || 7 }, game.id)
   }
@@ -1950,6 +2037,7 @@ function App() {
     setGameInfo(newGameInfo)
     setCurrentGameId(null)
     setCurrentInning(1)
+    resetLive(createInitialLive())
     // Sync to all devices
     syncCurrentGame(newGameData, newGameInfo, null)
   }
@@ -2056,6 +2144,13 @@ function App() {
             )}
           </div>
         </header>
+
+        <button
+          onClick={openGameDay}
+          className="w-full mb-3 py-3 rounded-lg text-lg font-black bg-amber-400 text-gray-900 shadow-md hover:bg-amber-300"
+        >
+          ⚾ Game Day Display
+        </button>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2 mb-4">
@@ -2321,6 +2416,25 @@ function App() {
       />
 
     </div>
+
+      {gameDayOpen && (
+        <GameDay
+          teamName={TEAM_NAME}
+          gameInfo={gameInfo}
+          gameData={gameData}
+          inning={currentInning}
+          live={live}
+          canEdit={canEdit}
+          syncStatus={syncStatus}
+          reentryViolations={reentryViolations}
+          onClose={closeGameDay}
+          onUpdateLive={updateLive}
+          onChangeInning={handleGameDayInning}
+          onForceInning={() => handleGameDayInning(reentryViolations.targetInning, true)}
+          onAssignPosition={handleAssignPosition}
+          onSwapClick={(player) => setSwapModal({ isOpen: true, player })}
+        />
+      )}
 
       <InningSubsModal
         isOpen={inningSubsModal}
