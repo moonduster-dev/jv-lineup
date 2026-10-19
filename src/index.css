@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Landscape tablet (e.g. 11" iPad at 1180x820): Game Day fits one screen, no scrolling */
+@custom-variant fit (@media (orientation: landscape) and (min-width: 768px) and (min-height: 600px));
+
 body {
   margin: 0;
   min-width: 320px;

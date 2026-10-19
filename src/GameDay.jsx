@@ -115,9 +115,12 @@ function PlayerPicker({ position, players, fieldAssignments, onPick, onClose, th
   )
 }
 
+// Fills the largest square that fits its parent, which must be a size container
+// (containerType: 'size'); text scales with the square via cqmin units
 function Diamond({ fieldAssignments, previousFieldAssignments, playersById, canEdit, onTapPosition, theme }) {
   return (
-    <div className="relative w-full aspect-square max-h-[70vh] mx-auto rounded-xl overflow-hidden" style={{ backgroundColor: theme.field }}>
+    <div className="relative shrink-0 rounded-xl overflow-hidden"
+      style={{ width: '100cqmin', height: '100cqmin', backgroundColor: theme.field }}>
       <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" aria-hidden="true">
         <polygon points="50,89 79,62 50,35 21,62" fill={theme.infield} stroke="white" strokeWidth="0.8" />
         <line x1="50" y1="89" x2="0" y2="39" stroke="white" strokeWidth="0.6" />
@@ -132,12 +135,12 @@ function Diamond({ fieldAssignments, previousFieldAssignments, playersById, canE
             key={pos}
             disabled={!canEdit}
             onClick={() => onTapPosition(pos)}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center rounded-xl px-2 py-1 shadow-lg min-w-[22%] max-w-[30%]
+            className={`absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center rounded-xl px-2 py-1 shadow-lg min-w-[22%] max-w-[32%]
               ${changed ? theme.bubbleChanged : theme.bubble} ${canEdit ? 'active:scale-95 transition-transform' : ''}`}
             style={{ left: `${x}%`, top: `${y}%` }}
           >
-            <span className="text-xs sm:text-sm font-black leading-tight">{pos}{changed ? ' • NEW' : ''}</span>
-            <span className="text-sm sm:text-lg lg:text-xl font-bold leading-tight truncate w-full text-center">
+            <span className="font-black leading-tight" style={{ fontSize: 'clamp(11px, 2.6cqmin, 17px)' }}>{pos}{changed ? ' • NEW' : ''}</span>
+            <span className="font-bold leading-tight truncate w-full text-center" style={{ fontSize: 'clamp(13px, 3.4cqmin, 23px)' }}>
               {player?.name || '—'}
             </span>
           </button>
@@ -212,57 +215,62 @@ export default function GameDay({
 
   return (
     // overscroll-none keeps scroll bounce from reaching the browser's own gestures
-    // (pull-to-refresh, Safari's swipe-down-to-exit-fullscreen)
-    <div className={`fixed inset-0 z-40 overflow-auto overscroll-none print:hidden ${theme.page}`}
+    // (pull-to-refresh, Safari's swipe-down-to-exit-fullscreen).
+    // fit: = landscape tablet — everything sized to one screen, no scrolling.
+    <div className={`fixed inset-0 z-40 overflow-auto fit:overflow-hidden overscroll-none print:hidden ${theme.page}`}
       style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="p-3 sm:p-4 max-w-[1400px] mx-auto">
-        {/* Top bar */}
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <div className="flex-1 min-w-[180px]">
-            <div className="text-xl sm:text-2xl font-black leading-tight">
+      <div className="p-2 sm:p-3 max-w-[1400px] mx-auto flex flex-col gap-2 fit:h-full">
+        {/* Header: game, inning, outs, controls */}
+        <div className={`shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl px-3 py-2 ${theme.panel}`}>
+          <div className="min-w-0 mr-auto">
+            <div className="text-xl font-black leading-tight truncate">
               {gameInfo.opponent ? `vs ${gameInfo.opponent}` : teamName}
             </div>
-            <div className={`text-sm font-semibold ${theme.muted}`}>
+            <div className={`text-xs font-semibold ${theme.muted}`}>
               {!online ? '⚠ OFFLINE — changes saved on this device' :
                 syncStatus === 'saving' ? 'Saving…' : syncStatus === 'error' ? '⚠ Sync error' : '✓ Synced'}
               {!canEdit && ' · View only'}
             </div>
           </div>
-          <button onClick={toggleTheme} className={`px-3 py-2 rounded-lg font-bold ${theme.buttonAlt}`}>
-            {themeName === 'sun' ? '☾ Night' : '☀ Sun'}
-          </button>
-          {!isInstalled && document.documentElement.requestFullscreen && (
-            <button onClick={toggleFullscreen} className={`px-3 py-2 rounded-lg font-bold ${theme.buttonAlt}`}>⛶ Full</button>
-          )}
-          <button onClick={onClose} className={`px-4 py-2 rounded-lg font-bold ${theme.button}`}>Exit</button>
-        </div>
 
-        {/* Inning + outs */}
-        <div className={`flex flex-wrap items-center gap-3 rounded-xl p-3 mb-3 ${theme.panel}`}>
-          {canEdit && (
-            <button disabled={inning <= 1} onClick={() => onChangeInning(inning - 1)}
-              className={`w-14 h-14 rounded-lg text-3xl font-black disabled:opacity-30 ${theme.buttonAlt}`}>‹</button>
-          )}
-          <div className="text-center">
-            <div className={`text-xs font-bold uppercase ${theme.muted}`}>Inning</div>
-            <div className="text-5xl font-black leading-none">{inning}</div>
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <button disabled={inning <= 1} onClick={() => onChangeInning(inning - 1)}
+                className={`w-12 h-12 rounded-lg text-3xl font-black disabled:opacity-30 ${theme.buttonAlt}`}
+                aria-label="Previous inning">‹</button>
+            )}
+            <div className="text-center px-1">
+              <div className={`text-[10px] font-bold uppercase leading-none ${theme.muted}`}>Inning</div>
+              <div className="text-4xl font-black leading-none">{inning}</div>
+            </div>
+            {canEdit && (
+              <button disabled={inning >= maxInning} onClick={() => onChangeInning(inning + 1)}
+                className={`h-12 px-4 rounded-lg text-lg font-black disabled:opacity-30 ${theme.button}`}>Next Inning ›</button>
+            )}
           </div>
-          {canEdit && (
-            <button disabled={inning >= maxInning} onClick={() => onChangeInning(inning + 1)}
-              className={`h-14 px-4 rounded-lg text-xl font-black disabled:opacity-30 ${theme.button}`}>Next Inning ›</button>
-          )}
-          <div className="flex items-center gap-2 ml-auto">
-            <span className={`text-sm font-bold uppercase ${theme.muted}`}>Outs</span>
+
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold uppercase ${theme.muted}`}>Outs</span>
             {[1, 2].map((k) => (
               <button key={k} disabled={!canEdit} onClick={() => setOuts(k)}
-                className={`w-12 h-12 rounded-full border-4 ${live.outs >= k ? 'bg-red-600 border-red-600' : 'border-current bg-transparent'}`}
+                className={`w-10 h-10 rounded-full border-4 ${live.outs >= k ? 'bg-red-600 border-red-600' : 'border-current bg-transparent'}`}
                 aria-label={`${k} out${k > 1 ? 's' : ''}`} />
             ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button onClick={toggleTheme} className={`h-12 px-3 rounded-lg font-bold ${theme.buttonAlt}`}>
+              {themeName === 'sun' ? '☾ Night' : '☀ Sun'}
+            </button>
+            {!isInstalled && document.documentElement.requestFullscreen && (
+              <button onClick={toggleFullscreen} className={`h-12 px-3 rounded-lg font-bold ${theme.buttonAlt}`}>⛶ Full</button>
+            )}
+            <button onClick={onClose} className={`h-12 px-4 rounded-lg font-bold ${theme.button}`}>Exit</button>
           </div>
         </div>
 
         {reentryViolations.messages.length > 0 && (
-          <div className="mb-3 p-3 rounded-xl bg-red-600 text-white">
+          <div className="shrink-0 p-3 rounded-xl bg-red-600 text-white">
             <p className="font-black text-lg">Re-entry problem — fix before advancing:</p>
             <ul className="list-disc list-inside font-semibold">
               {reentryViolations.messages.map((v, i) => <li key={i}>{v}</li>)}
@@ -271,51 +279,55 @@ export default function GameDay({
           </div>
         )}
 
-        <div className="grid gap-3 landscape:lg:grid-cols-2 landscape:md:grid-cols-2">
+        <div className="grid gap-2 fit:flex-1 fit:min-h-0 fit:grid-cols-2 fit:grid-rows-[minmax(0,1fr)]">
           {/* Left: diamond + pitcher */}
-          <div className="space-y-3">
-            <Diamond
-              fieldAssignments={data.fieldAssignments}
-              previousFieldAssignments={prevData?.fieldAssignments}
-              playersById={playersById}
-              canEdit={canEdit}
-              onTapPosition={setPickerPosition}
-              theme={theme}
-            />
-            <div className={`rounded-xl p-3 ${theme.panel}`}>
+          <div className="flex flex-col gap-2 min-h-0">
+            {/* Size container: the diamond takes the largest square that fits */}
+            <div className="aspect-square fit:aspect-auto fit:flex-1 fit:min-h-0 flex items-center justify-center"
+              style={{ containerType: 'size' }}>
+              <Diamond
+                fieldAssignments={data.fieldAssignments}
+                previousFieldAssignments={prevData?.fieldAssignments}
+                playersById={playersById}
+                canEdit={canEdit}
+                onTapPosition={setPickerPosition}
+                theme={theme}
+              />
+            </div>
+            <div className={`shrink-0 rounded-xl px-3 py-2 ${theme.panel}`}>
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className={`text-xs font-bold uppercase ${theme.muted}`}>Pitcher · pitch count</div>
-                  <div className="text-2xl font-black truncate">{pitcher?.name || 'No pitcher set'}</div>
+                  <div className="text-xl font-black truncate">{pitcher?.name || 'No pitcher set'}</div>
+                  {otherPitchers.length > 0 && (
+                    <div className={`text-xs font-semibold truncate ${theme.muted}`}>
+                      Earlier: {otherPitchers.map(([id, c]) => `${playersById[id]?.name || 'Player'} ${c}`).join(' · ')}
+                    </div>
+                  )}
                 </div>
                 {canEdit && (
                   <button onClick={() => setPitches(-1)} disabled={!pitcher}
-                    className={`w-14 h-14 rounded-lg text-3xl font-black disabled:opacity-30 ${theme.buttonAlt}`}>−</button>
+                    className={`w-12 h-12 rounded-lg text-3xl font-black disabled:opacity-30 ${theme.buttonAlt}`}>−</button>
                 )}
-                <div className="text-5xl font-black w-20 text-center tabular-nums">{pitchCount}</div>
+                <div className="text-4xl font-black w-16 text-center tabular-nums">{pitchCount}</div>
                 {canEdit && (
                   <button onClick={() => setPitches(1)} disabled={!pitcher}
-                    className={`w-20 h-14 rounded-lg text-3xl font-black disabled:opacity-30 ${theme.button}`}>+1</button>
+                    className={`w-16 h-12 rounded-lg text-2xl font-black disabled:opacity-30 ${theme.button}`}>+1</button>
                 )}
               </div>
-              {otherPitchers.length > 0 && (
-                <div className={`mt-2 text-sm font-semibold ${theme.muted}`}>
-                  Earlier: {otherPitchers.map(([id, c]) => `${playersById[id]?.name || 'Player'} ${c}`).join(' · ')}
-                </div>
-              )}
             </div>
           </div>
 
           {/* Right: batter tracker + lineup */}
-          <div className="space-y-3">
-            <div className={`rounded-xl p-3 ${theme.panel}`}>
+          <div className="flex flex-col gap-2 min-h-0">
+            <div className={`shrink-0 rounded-xl p-2 ${theme.panel}`}>
               <div className="grid grid-cols-3 gap-2">
                 {['At Bat', 'On Deck', 'In the Hole'].map((label, k) => {
                   const p = upcoming[k]
                   return (
-                    <div key={label} className={`rounded-lg p-2 border-2 ${k === 0 ? theme.highlight : theme.row}`}>
+                    <div key={label} className={`min-w-0 rounded-lg px-2 py-1 border-2 ${k === 0 ? theme.highlight : theme.row}`}>
                       <div className="text-xs font-bold uppercase">{label}</div>
-                      <div className={`${k === 0 ? 'text-2xl sm:text-3xl' : 'text-lg sm:text-xl'} font-black leading-tight break-words`}>
+                      <div className={`${k === 0 ? 'text-2xl line-clamp-2 break-words' : 'text-lg truncate'} font-black leading-tight`}>
                         {p?.name || '—'}
                       </div>
                       {p && <div className="text-sm font-bold">#{p.jersey} · {positionOf(p.id) || 'EH'}</div>}
@@ -326,43 +338,44 @@ export default function GameDay({
               {canEdit && (
                 <div className="flex gap-2 mt-2">
                   <button onClick={() => onUpdateLive({ batterIndex: batterIndex - 1 })}
-                    className={`h-14 px-5 rounded-lg text-xl font-black ${theme.buttonAlt}`}>‹ Back</button>
+                    className={`h-12 px-5 rounded-lg text-lg font-black ${theme.buttonAlt}`}>‹ Back</button>
                   <button onClick={() => onUpdateLive({ batterIndex: batterIndex + 1 })}
-                    className={`h-14 flex-1 rounded-lg text-xl font-black ${theme.button}`}>Next Batter ›</button>
+                    className={`h-12 flex-1 rounded-lg text-xl font-black ${theme.button}`}>Next Batter ›</button>
                 </div>
               )}
             </div>
 
-            <div className={`rounded-xl p-2 ${theme.panel}`}>
-              <div className="flex items-baseline justify-between px-1 pb-1">
+            <div className={`rounded-xl p-2 flex flex-col fit:flex-1 fit:min-h-0 ${theme.panel}`}>
+              <div className="shrink-0 flex items-baseline justify-between px-1 pb-1">
                 <span className="font-black text-lg">Batting Order</span>
-                {canEdit && <span className={`text-xs font-semibold ${theme.muted}`}>Tap a hitter to substitute or set who's up</span>}
+                {canEdit && <span className={`text-xs font-semibold ${theme.muted}`}>Tap a name to sub · tap a number to set who's up</span>}
               </div>
-              <div className="space-y-1">
+              {/* Rows stretch to fill the panel on a landscape tablet */}
+              <div className="flex flex-col gap-1 fit:flex-1 fit:min-h-0 fit:overflow-auto">
                 {battingOrder.map((p, idx) => {
                   const isUp = idx === batterIndex
                   const changed = prevData && prevData.battingOrder[idx]?.id !== p.id
                   return (
-                    <div key={p.id} className={`flex items-center gap-2 rounded-lg border-2 px-2 py-2 ${isUp ? theme.highlight : theme.row}`}>
+                    <div key={p.id} className={`flex items-center gap-2 rounded-lg border-2 px-2 py-1 min-h-11 fit:flex-1 fit:min-h-9 ${isUp ? theme.highlight : theme.row}`}>
                       <button disabled={!canEdit} onClick={() => onUpdateLive({ batterIndex: idx })}
-                        className="w-9 h-9 shrink-0 rounded-full border-2 border-current text-lg font-black"
+                        className="w-8 h-8 shrink-0 rounded-full border-2 border-current text-base font-black"
                         aria-label={`Set ${p.name} as current batter`}>
                         {idx + 1}
                       </button>
-                      <button disabled={!canEdit} onClick={() => onSwapClick(p)} className="flex-1 min-w-0 text-left">
-                        <span className="text-lg sm:text-xl font-bold truncate block">
+                      <button disabled={!canEdit} onClick={() => onSwapClick(p)} className="flex-1 min-w-0 text-left self-stretch">
+                        <span className="text-lg font-bold truncate block">
                           {p.name}
                           {changed && <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-green-600 text-white align-middle">IN</span>}
                         </span>
                       </button>
                       <span className={`text-sm font-bold ${isUp ? '' : theme.muted}`}>#{p.jersey}</span>
-                      <span className="w-11 text-center text-lg font-black">{positionOf(p.id) || 'EH'}</span>
+                      <span className="w-10 text-center text-lg font-black">{positionOf(p.id) || 'EH'}</span>
                     </div>
                   )
                 })}
               </div>
               {data.subs.some((s) => s.name && s.name.trim()) && (
-                <div className={`mt-2 px-1 text-sm font-semibold ${theme.muted}`}>
+                <div className={`shrink-0 mt-1 px-1 text-xs font-semibold truncate ${theme.muted}`}>
                   Bench: {data.subs.filter((s) => s.name && s.name.trim()).map((s) => s.name + (positionOf(s.id) ? ` (${positionOf(s.id)})` : '')).join(', ')}
                 </div>
               )}
